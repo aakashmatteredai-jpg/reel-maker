@@ -1,5 +1,6 @@
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "../components/ui/sonner";
 import { TooltipProvider } from "../components/ui/tooltip";
 import { Inter } from "next/font/google";
@@ -29,6 +30,7 @@ export default function RootLayout({
 					<TooltipProvider>
 						<Toaster />
 						{children}
+						<Analytics />
 					</TooltipProvider>
 				</ThemeProvider>
 			</body>
