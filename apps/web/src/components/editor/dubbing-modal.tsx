@@ -122,14 +122,12 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 		setIsDiarizing(true);
 		
 		try {
-			toast.loading("Analyzing speakers and transcription...", { id: "diarize" });
-			const result = await diarizeAudio(asset.file);
-			const mergedSegments = mergeShortSegments(result.segments);
-			const dubbingSegments = mergedSegments.map((s: any) => ({ ...s, isDubbed: false }));
-
-			toast.loading("Extracting per-speaker audio...", { id: "diarize" });
-			const { buildSpeakerProfiles } = await import("@/lib/dubbing/speaker-processor");
-			const builtSpeakers = await buildSpeakerProfiles(dubbingSegments, asset.file);
+			const { executeDubbingPipeline } = await import("@/lib/dubbing/speaker-processor");
+			
+			const { speakers: builtSpeakers, segments: dubbingSegments } = await executeDubbingPipeline(
+				asset.file,
+				(progress) => toast.loading(progress, { id: "diarize" })
+			);
 
 			// Create and save project automatically
 			const projectName = `Dub ${new Date().toLocaleTimeString()}`;
@@ -331,11 +329,35 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 										{activeTab === "characters" ? (
 											/* Speaker Verification Cards */
 											<div className="space-y-4">
-												<div className="flex items-center justify-between">
-													<h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Speaker Verification</h4>
-													<Badge variant="outline" className="text-[10px]">
-														{speakers.filter(s => s.confirmed).length}/{speakers.length} confirmed
-													</Badge>
+												<div className="flex items-center justify-between mb-4">
+													<div className="flex flex-col gap-1">
+														<h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Speaker Verification</h4>
+														<p className="text-[10px] text-muted-foreground font-medium italic">
+															{speakers.filter(s => s.confirmed).length}/{speakers.length} speakers verified
+														</p>
+													</div>
+													
+													{/* Mode Toggle */}
+													<div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 scale-90 origin-right">
+														<Button 
+															variant={useDubbingStore.getState().timelineMode ? "ghost" : "secondary"} 
+															size="sm" 
+															className="h-7 text-[10px] font-bold gap-1.5 px-3"
+															onClick={() => useDubbingStore.getState().setTimelineMode(false)}
+														>
+															<HugeiconsIcon icon={Mic01Icon} className="size-3" />
+															Speaker Audio
+														</Button>
+														<Button 
+															variant={useDubbingStore.getState().timelineMode ? "secondary" : "ghost"} 
+															size="sm" 
+															className="h-7 text-[10px] font-bold gap-1.5 px-3"
+															onClick={() => useDubbingStore.getState().setTimelineMode(true)}
+														>
+															<HugeiconsIcon icon={PlayIcon} className="size-3" />
+															Original Video
+														</Button>
+													</div>
 												</div>
 												{speakers.map((speaker) => (
 													<SpeakerVerificationCard key={speaker.id} speaker={speaker} />
@@ -437,36 +459,38 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 									</div>
 								</ScrollArea>
 								
-								<div className="p-4 border-t bg-muted/20 flex items-center justify-between">
-									<div className="flex items-center gap-2 text-xs text-muted-foreground">
-										<HugeiconsIcon icon={allSpeakersConfirmed() ? CheckmarkCircle01Icon : AlertCircleIcon} className={cn("size-4", allSpeakersConfirmed() ? "text-emerald-500" : "")} />
-										<span>{allSpeakersConfirmed() ? "All speakers confirmed — ready to dub!" : "Please confirm all speakers before dubbing."}</span>
-									</div>
-									<div className="flex gap-2">
-										<Button variant="outline" size="sm" onClick={() => setStep("choice")}>Back</Button>
-										<Button 
-											size="sm" 
-											onClick={() => {
-												if (!allSpeakersConfirmed()) {
-													toast.warning("Please confirm all speakers before dubbing.");
-													return;
-												}
-												handleDubAll();
-											}}
-											disabled={isDubbing || !allSpeakersConfirmed()}
-										>
-											{isDubbing ? (
-												<>
-													<HugeiconsIcon icon={Settings01Icon} className="size-4 animate-spin mr-2" />
-													Dubbing...
-												</>
-											) : (
-												<>
-													<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-4 mr-2" />
-													Complete Dubbing
-												</>
-											)}
-										</Button>
+								<div className="p-4 border-t bg-muted/20 flex flex-col gap-4">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2 text-xs text-muted-foreground">
+											<HugeiconsIcon icon={allSpeakersConfirmed() ? CheckmarkCircle01Icon : AlertCircleIcon} className={cn("size-4", allSpeakersConfirmed() ? "text-emerald-500" : "")} />
+											<span>{allSpeakersConfirmed() ? "All speakers confirmed — ready to dub!" : "Please confirm all speakers before dubbing."}</span>
+										</div>
+										<div className="flex gap-2">
+											<Button variant="outline" size="sm" onClick={() => setStep("choice")}>Back</Button>
+											<Button 
+												size="sm" 
+												onClick={() => {
+													if (!allSpeakersConfirmed()) {
+														toast.warning("Please confirm all speakers before dubbing.");
+														return;
+													}
+													handleDubAll();
+												}}
+												disabled={isDubbing || !allSpeakersConfirmed()}
+											>
+												{isDubbing ? (
+													<>
+														<HugeiconsIcon icon={Settings01Icon} className="size-4 animate-spin mr-2" />
+														Dubbing...
+													</>
+												) : (
+													<>
+														<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-4 mr-2" />
+														Complete Dubbing
+													</>
+												)}
+											</Button>
+										</div>
 									</div>
 								</div>
 							</div>

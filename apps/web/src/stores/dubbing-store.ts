@@ -14,6 +14,7 @@ export interface DubbingStore {
 	isDiarizing: boolean;
 	isDubbing: boolean;
 	playingSpeakerId: string | null;
+	timelineMode: boolean; // Global toggle: Speaker Audio vs Original Video
 
 	// Project actions
 	loadAllProjects: () => void;
@@ -36,6 +37,7 @@ export interface DubbingStore {
 	setIsDiarizing: (isDiarizing: boolean) => void;
 	setIsDubbing: (isDubbing: boolean) => void;
 	setPlayingSpeakerId: (id: string | null) => void;
+	setTimelineMode: (enabled: boolean) => void;
 
 	resetDubbing: () => void;
 }
@@ -50,6 +52,7 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 	isDiarizing: false,
 	isDubbing: false,
 	playingSpeakerId: null,
+	timelineMode: false,
 
 	// --- Project management ---
 
@@ -227,6 +230,9 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 	setIsDiarizing: (isDiarizing) => set({ isDiarizing }),
 	setIsDubbing: (isDubbing) => set({ isDubbing }),
 	setPlayingSpeakerId: (id) => set({ playingSpeakerId: id }),
+	setTimelineMode: (enabled) => {
+		set({ timelineMode: enabled });
+	},
 
 	resetDubbing: () =>
 		set({
@@ -237,5 +243,6 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 			isDubbing: false,
 			activeProjectId: null,
 			playingSpeakerId: null,
+			timelineMode: false,
 		}),
 }));

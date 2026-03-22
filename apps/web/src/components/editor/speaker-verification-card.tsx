@@ -34,11 +34,12 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 		unconfirmSpeaker, 
 		updateSegmentText, 
 		playingSpeakerId, 
-		setPlayingSpeakerId 
+		setPlayingSpeakerId,
+		timelineMode,
+		setTimelineMode
 	} = useDubbingStore();
 
 	const [currentAudioTime, setCurrentAudioTime] = useState(0);
-	const [timelineMode, setTimelineMode] = useState(false);
 	const [editingSegIdx, setEditingSegIdx] = useState<number | null>(null);
 	const [editText, setEditText] = useState("");
 	const [syncIssues, setSyncIssues] = useState<number[]>([]);
@@ -89,19 +90,25 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 	}, [playingSpeakerId, speaker.id]);
 
 	const handlePlaySpeakerAudio = () => {
+		if (timelineMode) {
+			if (speaker.segments.length === 0) return;
+			const firstSeg = speaker.segments[0];
+			editor.playback.seek({ time: firstSeg.start });
+			editor.playback.play();
+			setPlayingSpeakerId(speaker.id);
+			return;
+		}
+
 		if (!wavesurfer.current) return;
 		wavesurfer.current.playPause();
 	};
 
-	const handleTimelinePlay = () => {
-		if (speaker.segments.length === 0) return;
-		const firstSeg = speaker.segments[0];
-		editor.playback.seek({ time: firstSeg.start });
-		editor.playback.play();
-		setTimelineMode(true);
-        // Pause local audio if playing
-        if (wavesurfer.current?.isPlaying()) wavesurfer.current.pause();
-	};
+    // Handle editor playback state
+    useEffect(() => {
+        if (timelineMode && !editor.playback.getIsPlaying() && playingSpeakerId === speaker.id) {
+            setPlayingSpeakerId(null);
+        }
+    }, [editor.playback.getIsPlaying(), timelineMode, playingSpeakerId, speaker.id]);
 
     // Auto-scroll transcript
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -230,32 +237,24 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 					<Button
 						variant={isPlaying ? "default" : "outline"}
 						size="sm"
-						className="h-8 w-28 text-xs gap-1.5 shadow-sm transition-all"
-						disabled={!speaker.audioUrl}
+						className="h-8 w-full text-xs gap-1.5 shadow-sm transition-all"
+						disabled={!speaker.audioUrl && !timelineMode}
 						onClick={handlePlaySpeakerAudio}
 					>
 						<HugeiconsIcon icon={isPlaying ? PauseIcon : PlayIcon} className="size-3.5" />
-						{isPlaying ? "Pause" : "Play Audio"}
+						{isPlaying 
+							? (timelineMode ? "Pause Video" : "Pause Audio") 
+							: (timelineMode ? "Play in Timeline" : "Play Speaker Audio")}
 					</Button>
-
-					<Button
-						variant={timelineMode ? "default" : "outline"}
-						size="sm"
-						className="h-8 text-xs gap-1.5 shadow-sm"
-						onClick={handleTimelinePlay}
-					>
-						<HugeiconsIcon icon={PlayIcon} className="size-3.5" />
-						Timeline Mode
-					</Button>
-
-					<div className="flex-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground justify-end">
-						<span>{currentAudioTime.toFixed(1)}s</span>
+					
+					<div className="flex-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground justify-end shrink-0">
+						<span>{(timelineMode ? currentTime : currentAudioTime).toFixed(1)}s</span>
 						<span className="opacity-30">/</span>
-						<span>{speaker.totalDuration.toFixed(1)}s</span>
+						<span>{(timelineMode ? editor.timeline.getTotalDuration() : speaker.totalDuration).toFixed(1)}s</span>
 					</div>
 				</div>
 				
-				<div ref={waveformRef} className="w-full h-10 rounded overflow-hidden" />
+				{!timelineMode && <div ref={waveformRef} className="w-full h-10 rounded overflow-hidden" />}
 			</div>
 
 			{/* Transcript Segments */}

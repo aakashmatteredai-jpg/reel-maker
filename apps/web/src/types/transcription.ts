@@ -7,7 +7,7 @@ export interface TranscriptionSegment {
 	start: number;
 	end: number;
 	speakerId?: string;
-	gender?: "male" | "female" | "neutral";
+	gender?: "male" | "female" | "neutral" | string;
 }
 
 export interface TranscriptionResult {
@@ -51,7 +51,7 @@ export interface CaptionChunk {
 export interface Character {
 	id: string;
 	name: string;
-	gender: "male" | "female" | "neutral";
+	gender?: "male" | "female" | "neutral" | string;
 	ttsVoiceId?: string;
 	ttsProvider?: "elevenlabs" | "sarvam";
     totalDuration: number;
@@ -66,7 +66,7 @@ export interface DubbingSegment extends TranscriptionSegment {
 export interface DubbingSpeaker {
 	id: string;
 	name: string;
-	gender: "male" | "female" | "neutral";
+	gender?: "male" | "female" | "neutral" | string;
 	color: string;
 	segments: DubbingSegment[];
 	fullText: string;
