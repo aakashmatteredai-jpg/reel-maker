@@ -20,10 +20,17 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/utils/ui";
 
 export function DubbingButton() {
+	const editor = useEditor();
 	const [isOpen, setIsOpen] = useState(false);
 	const [showChoice, setShowChoice] = useState(true);
-	const { state, startDub } = useDub();
-	const editor = useEditor();
+
+	// Get the first video element on the timeline to use as a persistent key
+	const tracks = editor.timeline.getTracks();
+	const videoTrack = tracks.find(t => t.type === "video");
+	const mainElement = videoTrack?.elements[0];
+	const assetId = (mainElement && "mediaId" in mainElement) ? mainElement.mediaId : undefined;
+
+	const { state, startDub } = useDub(assetId);
 	
 	const hasProject = !!editor.project.getActiveOrNull();
 

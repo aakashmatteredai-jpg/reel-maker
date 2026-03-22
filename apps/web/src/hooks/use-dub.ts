@@ -1,27 +1,50 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { getFFmpeg } from "@/lib/media/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 import { 
 	saveAudioBlob, 
 	saveDubData, 
+	getDubData,
 	clearDubData 
 } from "@/lib/dub-storage";
 import { mergeTranscriptWithSpeakers } from "@/lib/merge-transcript";
 import { useEditor } from "./use-editor";
 import type { DubState, SpeakerData, SpeakerSegment } from "@/core/managers/dub-manager";
 
-export function useDub() {
+export function useDub(assetId?: string) {
 	const editor = useEditor();
 	const state = editor.dub.getState();
 
 	const reset = useCallback(() => {
 		editor.dub.reset();
+		if (assetId) {
+			saveDubData(`dub-state-${assetId}`, null).catch(console.error);
+		}
 		clearDubData().catch(console.error);
-	}, [editor]);
+	}, [editor, assetId]);
 
 	const setState = useCallback((update: Partial<DubState>) => {
 		editor.dub.updateState(update);
-	}, [editor]);
+		
+		// Persist state if it's done or has speakers
+		if (assetId && (update.stage === "done" || update.speakers || update.transcript)) {
+			const currentState = editor.dub.getState();
+			saveDubData(`dub-state-${assetId}`, currentState).catch(console.error);
+		}
+	}, [editor, assetId]);
+
+	// Auto-load state on mount or assetId change
+	useEffect(() => {
+		if (assetId) {
+			getDubData(`dub-state-${assetId}`).then((saved) => {
+				if (saved && typeof saved === "object") {
+					editor.dub.updateState(saved as DubState);
+				} else {
+					editor.dub.reset();
+				}
+			});
+		}
+	}, [assetId, editor]);
 
 	const startDub = useCallback(async (videoBlob: Blob) => {
 		try {
