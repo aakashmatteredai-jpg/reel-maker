@@ -4,9 +4,11 @@ export type DubStage =
 	| "idle"
 	| "extracting"
 	| "transcribing"
+	| "translating"
 	| "diarizing"
 	| "slicing"
 	| "merging"
+	| "dubbing"
 	| "done"
 	| "error";
 
@@ -16,6 +18,7 @@ export interface SpeakerSegment {
 	end: number;
 	text?: string;
 	mergedStart?: number;
+	dubbedAudioKey?: string;
 }
 
 export interface SpeakerData {
@@ -23,6 +26,8 @@ export interface SpeakerData {
 	segments: SpeakerSegment[];
 	mergedAudioKey: string;
 	totalDuration: number;
+	voiceProvider?: "elevenlabs" | "sarvam";
+	voiceId?: string;
 }
 
 export interface DubState {
@@ -31,6 +36,9 @@ export interface DubState {
 	error: string | null;
 	speakers: SpeakerData[];
 	transcript: SpeakerSegment[];
+	targetTranscript?: SpeakerSegment[];
+	targetLanguage?: string;
+	isDubbingEnabled: boolean;
 	rawAudioKey: string | null;
 }
 
@@ -40,6 +48,7 @@ const INITIAL_STATE: DubState = {
 	error: null,
 	speakers: [],
 	transcript: [],
+	isDubbingEnabled: false,
 	rawAudioKey: null,
 };
 

@@ -3,14 +3,39 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
     try {
         const { text, targetLanguage, provider, apiKey } = await req.json();
+        const finalApiKey = apiKey || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
-        if (!text || !targetLanguage || !apiKey) {
+        if (!text || !targetLanguage || !finalApiKey) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
         let translatedText = "";
 
-        if (provider === "openai") {
+        if (provider === "groq") {
+            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${finalApiKey}`,
+                },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `You are a professional translator. Translate the given text to ${targetLanguage}. 
+                            Maintain the same tone, style, and context. Return ONLY the translated text without quotes or explanations.`
+                        },
+                        { role: "user", content: text }
+                    ],
+                    temperature: 0.3,
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            translatedText = data.choices[0].message.content.trim();
+        } 
+        else if (provider === "openai") {
             const res = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
                 headers: {

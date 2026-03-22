@@ -20,7 +20,7 @@ export class MediaManager {
 	}: {
 		projectId: string;
 		asset: Omit<MediaAsset, "id">;
-	}): Promise<void> {
+	}): Promise<string | undefined> {
 		if (asset.file.size > MAX_FILE_SIZE_BYTES) {
 			toast.error(`File too large`, {
 				description: `File size must be less than ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB.`,
@@ -44,10 +44,12 @@ export class MediaManager {
 
 		try {
 			await storageService.saveMediaAsset({ projectId, mediaAsset: newAsset });
+			return newAsset.id;
 		} catch (error) {
 			console.error("Failed to save media asset:", error);
 			this.assets = this.assets.filter((asset) => asset.id !== newAsset.id);
 			this.notify();
+			return undefined;
 		}
 	}
 

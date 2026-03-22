@@ -3,12 +3,14 @@ import { getFFmpeg } from "@/lib/media/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
 import { 
 	saveAudioBlob, 
+	getAudioBlob,
 	saveDubData, 
 	getDubData,
 	clearDubData 
 } from "@/lib/dub-storage";
 import { mergeTranscriptWithSpeakers } from "@/lib/merge-transcript";
 import { useEditor } from "./use-editor";
+import { toast } from "sonner";
 import type { DubState, SpeakerData, SpeakerSegment } from "@/core/managers/dub-manager";
 
 export function useDub(assetId?: string) {
@@ -245,9 +247,183 @@ export function useDub(assetId?: string) {
 		}
 	}, [editor, setState]);
 
+	const translateTranscript = useCallback(async (targetLang: string) => {
+		const currentState = editor.dub.getState();
+		if (!currentState.transcript.length) return;
+
+		setState({ stage: "transcribing", progress: 0 }); // Reuse transcribing or add translating
+		const translated: SpeakerSegment[] = [];
+
+		for (let i = 0; i < currentState.transcript.length; i++) {
+			const seg = currentState.transcript[i];
+			if (!seg.text) {
+				translated.push({ ...seg, text: "" });
+				continue;
+			}
+
+			try {
+				const res = await fetch("/api/translate", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						text: seg.text,
+						targetLanguage: targetLang,
+						provider: "groq"
+					})
+				});
+				const data = await res.json();
+				translated.push({ ...seg, text: data.translatedText || seg.text });
+			} catch (e) {
+				translated.push({ ...seg, text: seg.text });
+			}
+			setState({ progress: Math.round((i / currentState.transcript.length) * 100) });
+		}
+
+		setState({ 
+			targetTranscript: translated, 
+			targetLanguage: targetLang,
+			stage: "done", // Mark as done for this step
+			progress: 100 
+		});
+	}, [editor, setState]);
+
+	const generateDub = useCallback(async () => {
+		const currentState = editor.dub.getState();
+		if (!currentState.targetTranscript || !currentState.targetTranscript.length) return;
+
+		setState({ stage: "dubbing", progress: 0 });
+		
+		const dubbedTranscript = [...currentState.targetTranscript];
+		const speakers = currentState.speakers;
+
+		for (let i = 0; i < dubbedTranscript.length; i++) {
+			const seg = dubbedTranscript[i];
+			const speaker = speakers.find(s => s.id === seg.speaker);
+			
+			if (!speaker || !speaker.voiceId || !speaker.voiceProvider || !seg.text) {
+				setState({ progress: Math.round((i / dubbedTranscript.length) * 100) });
+				continue;
+			}
+
+			try {
+				const res = await fetch("/api/tts", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						text: seg.text,
+						voiceId: speaker.voiceId,
+						provider: speaker.voiceProvider,
+						languageCode: currentState.targetLanguage
+					})
+				});
+				
+				if (res.ok) {
+					const audioBlob = await res.blob();
+					const key = `dubbed-${assetId || "temp"}-${i}-${speaker.id}`;
+					await saveAudioBlob(key, audioBlob);
+					dubbedTranscript[i] = { ...seg, dubbedAudioKey: key };
+				}
+			} catch (e) {
+				console.error("TTS failed for segment:", i, e);
+			}
+
+			setState({ progress: Math.round((i / dubbedTranscript.length) * 100) });
+		}
+
+		setState({ 
+			targetTranscript: dubbedTranscript, 
+			stage: "done", 
+			progress: 100 
+		});
+		toast.success("Dubbing generated successfully!");
+	}, [editor, setState, assetId]);
+
+	const applyToTimeline = useCallback(async () => {
+		const currentState = editor.dub.getState();
+		if (!currentState.targetTranscript || currentState.targetTranscript.length === 0) {
+			toast.error("No dubbed audio to apply!");
+			return;
+		}
+
+		const activeProject = editor.project.getActiveOrNull();
+		if (!activeProject) {
+			toast.error("No active project!");
+			return;
+		}
+
+		setState({ stage: "merging", progress: 0 });
+
+		// 1. Create Dubbing Track
+		const trackId = editor.timeline.addTrack({ type: "audio" });
+		editor.timeline.updateTracks(editor.timeline.getTracks().map(t => 
+			t.id === trackId ? { ...t, name: "AI Dubbed Voice" } : t
+		));
+		
+		let count = 0;
+		for (let i = 0; i < currentState.targetTranscript.length; i++) {
+			const seg = currentState.targetTranscript[i];
+			if (!seg.dubbedAudioKey) continue;
+
+			try {
+				const blob = await getAudioBlob(seg.dubbedAudioKey);
+				if (!blob) continue;
+
+				// Create File from Blob
+				const file = new File([blob], `dub-${i}.mp3`, { type: "audio/mpeg" });
+				
+				// Add to Media Manager
+				const mediaId = await editor.media.addMediaAsset({
+					projectId: activeProject.metadata.id,
+					asset: {
+						name: `Dub Speaker ${seg.speaker} - ${i}`,
+						type: "audio",
+						file: file,
+						url: URL.createObjectURL(file),
+					}
+				});
+
+				if (mediaId) {
+					// Insert into timeline
+					editor.timeline.insertElement({
+						element: {
+							id: `dub-el-${i}-${Date.now()}`,
+							type: "audio",
+							mediaId,
+							startTime: seg.mergedStart || 0,
+							duration: seg.end - seg.start,
+							trimStart: 0,
+							trimEnd: 0,
+						} as any,
+						placement: {
+							mode: "explicit",
+							trackId,
+						}
+					});
+					count++;
+				}
+			} catch (err) {
+				console.error("Failed to apply segment:", i, err);
+			}
+			setState({ progress: Math.round((i / currentState.targetTranscript.length) * 100) });
+		}
+
+		// 2. Mute original video track if desired
+		const videoTrack = editor.timeline.getTracks().find(t => t.type === "video");
+		if (videoTrack) {
+			editor.timeline.toggleTrackMute({ trackId: videoTrack.id });
+			toast.info("Original video audio muted to favor dubbed voice.");
+		}
+
+		setState({ stage: "done", progress: 100 });
+		toast.success(`Successfully added ${count} AI voice segments!`);
+	}, [editor, setState]);
+
 	return {
 		state,
 		startDub,
+		translateTranscript,
+		generateDub,
+		applyToTimeline,
 		reset,
 	};
 }

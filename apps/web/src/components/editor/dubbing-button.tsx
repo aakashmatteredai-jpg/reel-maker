@@ -8,12 +8,12 @@ import { useEditor } from "@/hooks/use-editor";
 import { useDub } from "@/hooks/use-dub";
 import { DubPanel } from "@/components/dub/dub-panel";
 import { 
-	Sheet, 
-	SheetContent, 
-	SheetHeader,
-	SheetTitle,
-	SheetDescription
-} from "@/components/ui/sheet";
+	Dialog, 
+	DialogContent, 
+	DialogHeader,
+	DialogTitle,
+	DialogDescription
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
@@ -90,13 +90,13 @@ export function DubbingButton() {
 				)}
 			</Button>
 
-			<Sheet open={isOpen} onOpenChange={setIsOpen}>
-				<SheetContent className="p-0 sm:max-w-[400px] flex flex-col h-full overflow-hidden">
+			<Dialog open={isOpen} onOpenChange={setIsOpen}>
+				<DialogContent className="p-0 sm:max-w-[1000px] max-h-[90vh] flex flex-col overflow-hidden bg-background">
 					<div className="sr-only">
-						<SheetHeader>
-							<SheetTitle>Dubbing & Voice Over</SheetTitle>
-							<SheetDescription>Configure AI dubbing or add manual voice over to your video.</SheetDescription>
-						</SheetHeader>
+						<DialogHeader>
+							<DialogTitle>Dubbing & Voice Over</DialogTitle>
+							<DialogDescription>Configure AI dubbing or add manual voice over to your video.</DialogDescription>
+						</DialogHeader>
 					</div>
 					{showChoice && state.stage === "idle" ? (
 						<div className="flex-1 flex flex-col items-center justify-center p-8 gap-8 animate-in fade-in zoom-in duration-300">
@@ -140,8 +140,8 @@ export function DubbingButton() {
 					) : (
 						<DubPanel />
 					)}
-				</SheetContent>
-			</Sheet>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }
