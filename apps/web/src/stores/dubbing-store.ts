@@ -13,6 +13,7 @@ export interface DubbingStore {
 	speakers: DubbingSpeaker[];
 	isDiarizing: boolean;
 	isDubbing: boolean;
+	playingSpeakerId: string | null;
 
 	// Project actions
 	loadAllProjects: () => void;
@@ -34,6 +35,7 @@ export interface DubbingStore {
 	allSpeakersConfirmed: () => boolean;
 	setIsDiarizing: (isDiarizing: boolean) => void;
 	setIsDubbing: (isDubbing: boolean) => void;
+	setPlayingSpeakerId: (id: string | null) => void;
 
 	resetDubbing: () => void;
 }
@@ -47,6 +49,7 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 	speakers: [],
 	isDiarizing: false,
 	isDubbing: false,
+	playingSpeakerId: null,
 
 	// --- Project management ---
 
@@ -223,6 +226,7 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 	},
 	setIsDiarizing: (isDiarizing) => set({ isDiarizing }),
 	setIsDubbing: (isDubbing) => set({ isDubbing }),
+	setPlayingSpeakerId: (id) => set({ playingSpeakerId: id }),
 
 	resetDubbing: () =>
 		set({
@@ -232,5 +236,6 @@ export const useDubbingStore = create<DubbingStore>()((set, get) => ({
 			isDiarizing: false,
 			isDubbing: false,
 			activeProjectId: null,
+			playingSpeakerId: null,
 		}),
 }));

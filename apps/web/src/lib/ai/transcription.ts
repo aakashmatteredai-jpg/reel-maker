@@ -1,8 +1,14 @@
 import type { TranscriptionResult, TranscriptionSegment } from "@/types/transcription";
 import { chunkAudioFile } from "./audio-utils";
+import { getApiKey } from "./ai-config";
 
 export async function transcribeAudioSarvam(file: File | Blob, duration: number): Promise<TranscriptionResult> {
 	try {
+        const apiKey = getApiKey("sarvam");
+        if (!apiKey) {
+            throw new Error("Sarvam API key is missing. Please add it in settings.");
+        }
+
         // Sarvam Sync API max limit is 30s, so we chunk it into 29s segments.
         const chunkDuration = 29;
         console.log(`Chunking audio of duration ${duration}s...`);
@@ -17,6 +23,7 @@ export async function transcribeAudioSarvam(file: File | Blob, duration: number)
             const chunkBlob = chunks[i];
             const formData = new FormData();
             formData.append("file", chunkBlob, `chunk_${i}.wav`);
+            formData.append("apiKey", apiKey);
 
             console.log(`Transcribing chunk ${i + 1}/${chunks.length}...`);
             const res = await fetch("/api/transcribe", {
@@ -60,8 +67,12 @@ export async function transcribeAudioSarvam(file: File | Blob, duration: number)
 
 export async function diarizeAudio(file: File | Blob): Promise<TranscriptionResult> {
     try {
+        const apiKey = getApiKey("sarvam");
         const formData = new FormData();
         formData.append("file", file, "audio.wav");
+        if (apiKey) {
+            formData.append("apiKey", apiKey);
+        }
 
         const res = await fetch("/api/diarize", {
             method: "POST",

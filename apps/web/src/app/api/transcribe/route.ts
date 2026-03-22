@@ -9,10 +9,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        const apiKey = process.env.SARVAM_API_KEY;
+        const apiKey = formData.get("apiKey") as string | null;
         
         if (!apiKey) {
-            return NextResponse.json({ error: "SARVAM_API_KEY is not configured on the server." }, { status: 500 });
+            return NextResponse.json({ error: "Sarvam API Key is required. Please add it in settings." }, { status: 400 });
         }
 
         // Forward the FormData to Sarvam's API

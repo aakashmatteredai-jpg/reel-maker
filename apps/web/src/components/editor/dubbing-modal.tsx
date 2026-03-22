@@ -356,9 +356,8 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 												</div>
 												<div className="space-y-2">
 													{[...segments].sort((a, b) => a.start - b.start).map((seg, idx) => {
+														const speaker = speakers.find(s => s.id === seg.speakerId);
 														const char = characters.find(c => c.id === seg.speakerId);
-														// Highlighting logic based on editor playback time
-														const currentTime = editor.playback.getCurrentTime();
 														const isActive = currentTime >= seg.start && currentTime <= seg.end;
 
 														return (
@@ -366,11 +365,17 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 																key={idx} 
 																className={cn(
 																	"flex gap-4 p-4 rounded-xl border transition-all duration-300 group relative overflow-hidden",
-																	isActive ? "border-primary bg-primary/5 shadow-md scale-[1.01]" : "bg-muted/10 border-border hover:bg-muted/30"
+																	isActive ? "border-primary bg-primary/5 shadow-md scale-[1.01]" : "bg-muted/10 border-border hover:bg-muted/30",
+																	speaker?.confirmed ? "border-emerald-500/20" : ""
 																)}
 															>
 																{isActive && (
 																	<div className="absolute left-0 top-0 bottom-0 w-1 bg-primary animate-pulse" />
+																)}
+																{speaker?.confirmed && !isActive && (
+																	<div className="absolute right-2 top-2">
+																		<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-3.5 text-emerald-500/50" />
+																	</div>
 																)}
 																<div className="flex flex-col items-center gap-2 shrink-0">
 																	<div className={cn(
@@ -381,12 +386,19 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 																	)} style={{ borderColor: char?.color }}>
 																		<HugeiconsIcon icon={UserIcon} className="size-5" />
 																	</div>
-																	<span className="text-[9px] font-mono text-muted-foreground font-bold">{seg.start.toFixed(1)}s</span>
+																	<span className="text-[9px] font-mono text-muted-foreground font-bold tabular-nums">{seg.start.toFixed(1)}s</span>
 																</div>
 																<div className="flex-1 space-y-2">
 																	<div className="flex items-center justify-between">
 																		<div className="flex items-center gap-2">
-																			<span className="text-xs font-bold text-foreground/70">{char?.name || "Unknown"}</span>
+																			<span className="text-xs font-bold text-foreground/70" style={{ color: char?.color }}>
+																				{char?.name || "Unknown"}
+																			</span>
+																			{speaker?.confirmed && (
+																				<Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 border-emerald-500/30 text-emerald-600 bg-emerald-500/5 uppercase font-bold">
+																					Verified
+																				</Badge>
+																			)}
 																			{char?.ttsVoiceId && (
 																				<Badge variant="secondary" className="text-[10px] h-4 px-1 py-0 font-normal opacity-70">
 																					{voices.find(v => v.id === char.ttsVoiceId)?.name || char.ttsVoiceId}
@@ -400,7 +412,8 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 																			onClick={() => {
 																				editor.playback.seek({ time: seg.start });
 																				editor.playback.play();
-																				setTimeout(() => editor.playback.pause(), (seg.end - seg.start) * 1000);
+																				// Optional: auto-pause after segment
+																				// setTimeout(() => editor.playback.pause(), (seg.end - seg.start) * 1000);
 																			}}
 																		>
 																			<HugeiconsIcon icon={PlayIcon} className="size-4" />
