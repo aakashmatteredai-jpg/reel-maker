@@ -9,6 +9,7 @@ import {
 	clearDubData 
 } from "@/lib/dub-storage";
 import { mergeTranscriptWithSpeakers } from "@/lib/merge-transcript";
+import { buildElementFromMedia } from "@/lib/timeline/element-utils";
 import { useEditor } from "./use-editor";
 import { toast } from "sonner";
 import type { DubState, SpeakerData, SpeakerSegment } from "@/core/managers/dub-manager";
@@ -391,16 +392,17 @@ export function useDub(assetId?: string) {
 
 				if (mediaId) {
 					// Insert into timeline
+					const duration = seg.end - seg.start;
+					const element = buildElementFromMedia({
+						mediaId,
+						mediaType: "audio",
+						name: `Dub Speaker ${seg.speaker} - ${i}`,
+						duration,
+						startTime: seg.start,
+					});
+
 					editor.timeline.insertElement({
-						element: {
-							id: `dub-el-${i}-${Date.now()}`,
-							type: "audio",
-							mediaId,
-							startTime: seg.start,
-							duration: seg.end - seg.start,
-							trimStart: 0,
-							trimEnd: 0,
-						} as any,
+						element,
 						placement: {
 							mode: "explicit",
 							trackId,
