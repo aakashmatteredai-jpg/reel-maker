@@ -47,6 +47,7 @@ import {
 	Image02Icon,
 	MusicNote03Icon,
 	Video01Icon,
+	Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
@@ -71,6 +72,8 @@ export function MediaView() {
 
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [progress, setProgress] = useState(0);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	const [isSelectionMode, setIsSelectionMode] = useState(false);
 
 	const processFiles = async ({ files }: { files: FileList }) => {
 		if (!files || files.length === 0) return;
@@ -126,6 +129,43 @@ export function MediaView() {
 		await editor.media.removeMediaAsset({
 			projectId: activeProject.metadata.id,
 			id,
+		});
+
+		setSelectedIds(prev => {
+			const next = new Set(prev);
+			next.delete(id);
+			return next;
+		});
+	};
+
+	const handleBulkRemove = async () => {
+		if (!activeProject || selectedIds.size === 0) return;
+
+		const ids = Array.from(selectedIds);
+		const count = ids.length;
+
+		// We should probably have a bulk remove in MediaManager, but for now we loop
+		for (const id of ids) {
+			await editor.media.removeMediaAsset({
+				projectId: activeProject.metadata.id,
+				id,
+			});
+		}
+
+		setSelectedIds(new Set());
+		setIsSelectionMode(false);
+		toast.success(`Removed ${count} assets`);
+	};
+
+	const toggleSelection = (id: string) => {
+		setSelectedIds(prev => {
+			const next = new Set(prev);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
 		});
 	};
 
@@ -188,6 +228,11 @@ export function MediaView() {
 						sortOrder={mediaSortOrder}
 						onSort={handleSort}
 						onImport={openFilePicker}
+						selectedCount={selectedIds.size}
+						onBulkRemove={handleBulkRemove}
+						isSelectionMode={isSelectionMode}
+						setIsSelectionMode={setIsSelectionMode}
+						onClearSelection={() => setSelectedIds(new Set())}
 					/>
 				}
 				className={cn(isDragOver && "bg-accent/30")}
@@ -207,6 +252,9 @@ export function MediaView() {
 						onRemove={handleRemove}
 						highlightedId={highlightedId}
 						registerElement={registerElement}
+						selectedIds={selectedIds}
+						onToggleSelection={toggleSelection}
+						isSelectionMode={isSelectionMode}
 					/>
 				)}
 			</PanelView>
@@ -220,12 +268,16 @@ function MediaAssetDraggable({
 	isHighlighted,
 	variant,
 	isRounded,
+	isSelected = false,
+	onClick,
 }: {
 	item: MediaAsset;
 	preview: React.ReactNode;
 	isHighlighted: boolean;
 	variant: "card" | "compact";
 	isRounded?: boolean;
+	isSelected?: boolean;
+	onClick?: (e: React.MouseEvent) => void;
 }) {
 	const editor = useEditor();
 
@@ -271,6 +323,8 @@ function MediaAssetDraggable({
 			variant={variant}
 			isRounded={isRounded}
 			isHighlighted={isHighlighted}
+			isSelected={isSelected}
+			onClick={onClick}
 		/>
 	);
 }
@@ -306,12 +360,18 @@ function MediaItemList({
 	onRemove,
 	highlightedId,
 	registerElement,
+	selectedIds,
+	onToggleSelection,
+	isSelectionMode,
 }: {
 	items: MediaAsset[];
 	mode: MediaViewMode;
 	onRemove: ({ event, id }: { event: React.MouseEvent; id: string }) => void;
 	highlightedId: string | null;
 	registerElement: (id: string, element: HTMLElement | null) => void;
+	selectedIds: Set<string>;
+	onToggleSelection: (id: string) => void;
+	isSelectionMode: boolean;
 }) {
 	const isGrid = mode === "grid";
 
@@ -336,6 +396,14 @@ function MediaItemList({
 							variant={isGrid ? "card" : "compact"}
 							isRounded={isGrid ? false : undefined}
 							isHighlighted={highlightedId === item.id}
+							isSelected={selectedIds.has(item.id)}
+							onClick={(e) => {
+								if (isSelectionMode || e.metaKey || e.ctrlKey || e.shiftKey) {
+									e.preventDefault();
+									e.stopPropagation();
+									onToggleSelection(item.id);
+								}
+							}}
 						/>
 					</MediaItemWithContextMenu>
 				</div>
@@ -474,6 +542,11 @@ function MediaActions({
 	sortOrder,
 	onSort,
 	onImport,
+	selectedCount,
+	onBulkRemove,
+	isSelectionMode,
+	setIsSelectionMode,
+	onClearSelection,
 }: {
 	mediaViewMode: MediaViewMode;
 	setMediaViewMode: (mode: MediaViewMode) => void;
@@ -482,9 +555,69 @@ function MediaActions({
 	sortOrder: MediaSortOrder;
 	onSort: ({ key }: { key: MediaSortKey }) => void;
 	onImport: () => void;
+	selectedCount: number;
+	onBulkRemove: () => void;
+	isSelectionMode: boolean;
+	setIsSelectionMode: (mode: boolean) => void;
+	onClearSelection: () => void;
 }) {
 	return (
-		<div className="flex gap-1.5">
+		<div className="flex gap-1.5 items-center">
+			{selectedCount > 0 ? (
+				<div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-right-2 duration-300">
+					<span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full border border-primary/20">
+						{selectedCount} selected
+					</span>
+					
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+									onClick={onBulkRemove}
+								>
+									<HugeiconsIcon icon={Delete02Icon} className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Delete selected</TooltipContent>
+						</Tooltip>
+						
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									size="sm"
+									variant="ghost"
+									className="h-8 text-[10px] uppercase tracking-wider font-bold"
+									onClick={onClearSelection}
+								>
+									Clear
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Clear selection</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+
+					<div className="w-[1px] h-4 bg-border mx-1" />
+				</div>
+			) : (
+				<Button
+					size="sm"
+					variant={isSelectionMode ? "secondary" : "ghost"}
+					className={cn(
+						"h-8 text-[10px] uppercase tracking-wider font-bold transition-all",
+						isSelectionMode ? "bg-primary/20 text-primary hover:bg-primary/30" : "text-muted-foreground"
+					)}
+					onClick={() => {
+						setIsSelectionMode(!isSelectionMode);
+						if (isSelectionMode) onClearSelection();
+					}}
+				>
+					{isSelectionMode ? "Cancel Select" : "Select"}
+				</Button>
+			)}
+
 			<TooltipProvider>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -495,12 +628,12 @@ function MediaActions({
 								setMediaViewMode(mediaViewMode === "grid" ? "list" : "grid")
 							}
 							disabled={isProcessing}
-							className="items-center justify-center"
+							className="size-8"
 						>
 							{mediaViewMode === "grid" ? (
-								<HugeiconsIcon icon={LeftToRightListDashIcon} />
+								<HugeiconsIcon icon={LeftToRightListDashIcon} className="size-4" />
 							) : (
-								<HugeiconsIcon icon={GridViewIcon} />
+								<HugeiconsIcon icon={GridViewIcon} className="size-4" />
 							)}
 						</Button>
 					</TooltipTrigger>
@@ -520,9 +653,9 @@ function MediaActions({
 									size="icon"
 									variant="ghost"
 									disabled={isProcessing}
-									className="items-center justify-center"
+									className="size-8"
 								>
-									<HugeiconsIcon icon={SortingOneNineIcon} />
+									<HugeiconsIcon icon={SortingOneNineIcon} className="size-4" />
 								</Button>
 							</DropdownMenuTrigger>
 						</TooltipTrigger>
@@ -570,9 +703,9 @@ function MediaActions({
 				onClick={onImport}
 				disabled={isProcessing}
 				size="sm"
-				className="items-center justify-center gap-1.5"
+				className="h-8 gap-1.5 px-3"
 			>
-				<HugeiconsIcon icon={CloudUploadIcon} />
+				<HugeiconsIcon icon={CloudUploadIcon} className="size-4" />
 				Import
 			</Button>
 		</div>

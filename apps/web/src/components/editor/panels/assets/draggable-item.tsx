@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
@@ -30,6 +30,8 @@ export interface DraggableItemProps {
 	variant?: "card" | "compact";
 	isDraggable?: boolean;
 	isHighlighted?: boolean;
+	isSelected?: boolean;
+	onClick?: (e: React.MouseEvent) => void;
 }
 
 export function DraggableItem({
@@ -47,6 +49,8 @@ export function DraggableItem({
 	variant = "card",
 	isDraggable = true,
 	isHighlighted = false,
+	isSelected = false,
+	onClick,
 }: DraggableItemProps) {
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
@@ -105,7 +109,9 @@ export function DraggableItem({
 							"relative flex h-auto w-full cursor-default flex-col gap-1 p-1",
 							className,
 							isHighlighted && highlightClassName,
+							isSelected && "ring-2 ring-primary rounded-sm shadow-md bg-primary/5"
 						)}
+						onClick={onClick}
 					>
 						<AspectRatio
 							ratio={aspectRatio}
@@ -119,7 +125,12 @@ export function DraggableItem({
 							onDragEnd={isDraggable ? handleDragEnd : undefined}
 						>
 							{preview}
-							{!isDragging && (
+							{isSelected && (
+								<div className="absolute top-1 left-1 bg-primary text-primary-foreground rounded-full size-4 flex items-center justify-center border border-background shadow-sm z-10 animate-in zoom-in-50 duration-200">
+									<Check className="size-3" />
+								</div>
+							)}
+							{!isDragging && !isSelected && (
 								<PlusButton
 									className="opacity-0 group-hover:opacity-100"
 									onClick={handleAddToTimeline}
@@ -147,7 +158,9 @@ export function DraggableItem({
 					className={cn(
 						"group relative w-full",
 						isHighlighted && highlightClassName,
+						isSelected && "bg-primary/10 border-l-2 border-primary"
 					)}
+					onClick={onClick}
 				>
 					<button
 						type="button"
@@ -160,8 +173,13 @@ export function DraggableItem({
 						onDragStart={isDraggable ? handleDragStart : undefined}
 						onDragEnd={isDraggable ? handleDragEnd : undefined}
 					>
-						<div className="size-6 flex-shrink-0 overflow-hidden rounded-[0.35rem]">
+						<div className="size-6 flex-shrink-0 overflow-hidden rounded-[0.35rem] relative">
 							{preview}
+							{isSelected && (
+								<div className="absolute inset-0 bg-primary/40 flex items-center justify-center">
+									<Check className="size-3 text-white" />
+								</div>
+							)}
 						</div>
 						<span className="w-full flex-1 truncate text-sm text-left">
 							{name}
