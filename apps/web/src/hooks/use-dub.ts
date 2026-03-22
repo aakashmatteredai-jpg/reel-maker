@@ -89,7 +89,7 @@ export function useDub() {
 			const sarvamForm = new FormData();
 			sarvamForm.append("file", audioBlob, "audio.wav");
 			sarvamForm.append("language_code", "hi-IN");
-			sarvamForm.append("model", "saarika:v2");
+			sarvamForm.append("model", "saarika:v2.5");
 			sarvamForm.append("with_timestamps", "true");
 
 			const sarvamRes = await fetch("https://api.sarvam.ai/speech-to-text", {
