@@ -63,6 +63,34 @@ export class DubManager {
 		this.notify();
 	}
 
+	updateSpeakerSegment(speakerId: string, segmentIdx: number, update: Partial<SpeakerSegment>) {
+		const speakers = [...this.state.speakers];
+		const speakerIdx = speakers.findIndex(s => s.id === speakerId);
+		if (speakerIdx === -1) return;
+
+		const speaker = { ...speakers[speakerIdx] };
+		const segments = [...speaker.segments];
+		segments[segmentIdx] = { ...segments[segmentIdx], ...update };
+		
+		speaker.segments = segments;
+		
+		// Recalculate total duration if times changed
+		if (update.start !== undefined || update.end !== undefined) {
+			let cumulativeOffset = 0;
+			speaker.segments = speaker.segments.map(s => {
+				const duration = s.end - s.start;
+				const sWithOffset = { ...s, mergedStart: cumulativeOffset };
+				cumulativeOffset += duration;
+				return sWithOffset;
+			});
+			speaker.totalDuration = cumulativeOffset;
+		}
+
+		speakers[speakerIdx] = speaker;
+		this.state = { ...this.state, speakers };
+		this.notify();
+	}
+
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);

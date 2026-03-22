@@ -45,96 +45,8 @@ export function useDub() {
 
 			setState({ rawAudioKey: "raw-audio", progress: 20 });
 
-			// 2. TRANSCRIBING (Sarvam Chunked Sync API)
-			setState({ stage: "transcribing", progress: 20 });
-			const sarvamKey = process.env.NEXT_PUBLIC_SARVAM_API_KEY;
-			if (!sarvamKey) throw new Error("Sarvam API key (NEXT_PUBLIC_SARVAM_API_KEY) missing.");
-
-			const CHUNK_SIZE = 25; 
-			let currentOffset = 0;
-			let allSarvamSegments: any[] = [];
-			let chunkIdx = 0;
-			let hasMore = true;
-
-			while (hasMore) {
-				const chunkFile = `chunk_${chunkIdx}.wav`;
-				await ffmpeg.exec([
-					"-ss", currentOffset.toString(),
-					"-i", "output.wav",
-					"-t", CHUNK_SIZE.toString(),
-					"-c", "copy",
-					chunkFile
-				]);
-
-				let chunkData: Uint8Array;
-				try {
-					chunkData = await ffmpeg.readFile(chunkFile) as Uint8Array;
-				} catch (e) {
-					hasMore = false;
-					break;
-				}
-
-				if (chunkData.length < 1000) {
-					hasMore = false;
-					break;
-				}
-
-				const chunkBlob = new Blob([chunkData as any], { type: "audio/wav" });
-				const sarvamForm = new FormData();
-				sarvamForm.append("file", chunkBlob, "audio.wav");
-				sarvamForm.append("language_code", "hi-IN");
-				sarvamForm.append("model", "saarika:v2.5");
-				sarvamForm.append("with_timestamps", "true");
-
-				const sarvamRes = await fetch("https://api.sarvam.ai/speech-to-text", {
-					method: "POST",
-					headers: { "api-subscription-key": sarvamKey },
-					body: sarvamForm,
-				});
-
-				if (!sarvamRes.ok) {
-					if (chunkIdx === 0) throw new Error(`Sarvam error: ${sarvamRes.statusText}`);
-					hasMore = false;
-					break;
-				}
-
-				const data = await sarvamRes.json();
-				let chunkSegments: any[] = [];
-
-				if (data.timestamps && data.timestamps.words && data.timestamps.words.length > 0) {
-					chunkSegments = data.timestamps.words.map((text: string, i: number) => ({
-						text: text,
-						start: (data.timestamps.start_time_seconds?.[i] || 0) + currentOffset,
-						end: (data.timestamps.end_time_seconds?.[i] || CHUNK_SIZE) + currentOffset
-					}));
-				} else if (Array.isArray(data.transcript)) {
-					chunkSegments = data.transcript.map((s: any) => ({
-						...s,
-						start: (s.start || 0) + currentOffset,
-						end: (s.end || 0) + currentOffset
-					}));
-				} else if (typeof data.transcript === "string") {
-					chunkSegments = [{
-						text: data.transcript,
-						start: currentOffset,
-						end: currentOffset + CHUNK_SIZE
-					}];
-				}
-
-				allSarvamSegments = [...allSarvamSegments, ...chunkSegments];
-				await ffmpeg.deleteFile(chunkFile);
-				
-				currentOffset += CHUNK_SIZE;
-				chunkIdx++;
-				setState({ progress: 20 + Math.min(18, chunkIdx * 2) });
-				if (chunkIdx > 100) break; 
-			}
-
-			await saveDubData("transcript", allSarvamSegments);
-			setState({ progress: 40 });
-
-			// 3. DIARIZING (Python Proxy)
-			setState({ stage: "diarizing", progress: 40 });
+			// 2. DIARIZING (Python Proxy)
+			setState({ stage: "diarizing", progress: 20 });
 			const diarizeForm = new FormData();
 			const fullAudioData = await ffmpeg.readFile("output.wav") as Uint8Array;
 			diarizeForm.append("audio", new Blob([fullAudioData as any], { type: "audio/wav" }), "audio.wav");
@@ -146,41 +58,90 @@ export function useDub() {
 
 			if (!diarizeRes.ok) throw new Error(`Diarization failed: ${diarizeRes.statusText}`);
 			const diarizationRaw = await diarizeRes.json();
-			// result: { speakers: string[], segments: [{speaker, start, end}] }
 			
-			// 1. Sort raw speakers by their FIRST appearance time
+			// Sort and Rename speakers
 			const sortedRawSpeakers = [...diarizationRaw.speakers].sort((a, b) => {
 				const firstA = diarizationRaw.segments.find((s: any) => s.speaker === a)?.start || 0;
 				const firstB = diarizationRaw.segments.find((s: any) => s.speaker === b)?.start || 0;
 				return firstA - firstB;
 			});
 
-			// 2. Create a mapping to "Speaker 1", "Speaker 2"...
 			const speakerMapping: Record<string, string> = {};
 			sortedRawSpeakers.forEach((rawId, idx) => {
 				speakerMapping[rawId] = `Speaker ${idx + 1}`;
 			});
 
-			// 3. Transform segments with new names
-			const diarization = {
-				speakers: sortedRawSpeakers.map(id => speakerMapping[id]),
-				segments: diarizationRaw.segments.map((s: any) => ({
-					...s,
-					speaker: speakerMapping[s.speaker]
-				}))
-			};
+			const diarizedSegments = diarizationRaw.segments.map((s: any) => ({
+				...s,
+				speaker: speakerMapping[s.speaker]
+			}));
 
-			await saveDubData("diarization", diarization);
+			await saveDubData("diarization", { speakers: Object.values(speakerMapping), segments: diarizedSegments });
+			setState({ progress: 40 });
 
-			const fullTranscript = mergeTranscriptWithSpeakers(allSarvamSegments, diarization.segments);
+			// 3. TRANSCRIBING per segment
+			setState({ stage: "transcribing", progress: 40 });
+			const sarvamKey = process.env.NEXT_PUBLIC_SARVAM_API_KEY;
+			if (!sarvamKey) throw new Error("Sarvam API key missing.");
+
+			const fullTranscript: SpeakerSegment[] = [];
+			for (let i = 0; i < diarizedSegments.length; i++) {
+				const seg = diarizedSegments[i];
+				const segFile = `transcribe_seg_${i}.wav`;
+				
+				// Slice audio for this segment
+				await ffmpeg.exec([
+					"-i", "output.wav",
+					"-ss", seg.start.toString(),
+					"-to", seg.end.toString(),
+					"-c", "copy",
+					segFile
+				]);
+
+				const segData = await ffmpeg.readFile(segFile) as Uint8Array;
+				if (segData.length > 1000) {
+					const segBlob = new Blob([segData as any], { type: "audio/wav" });
+					const sarvamForm = new FormData();
+					sarvamForm.append("file", segBlob, "audio.wav");
+					sarvamForm.append("language_code", "hi-IN");
+					sarvamForm.append("model", "saarika:v2.5");
+
+					try {
+						const sarvamRes = await fetch("https://api.sarvam.ai/speech-to-text", {
+							method: "POST",
+							headers: { "api-subscription-key": sarvamKey },
+							body: sarvamForm,
+						});
+
+						if (sarvamRes.ok) {
+							const data = await sarvamRes.json();
+							fullTranscript.push({
+								speaker: seg.speaker,
+								start: seg.start,
+								end: seg.end,
+								text: data.transcript || "",
+							});
+						} else {
+							fullTranscript.push({ ...seg, text: "" });
+						}
+					} catch (e) {
+						fullTranscript.push({ ...seg, text: "" });
+					}
+				} else {
+					fullTranscript.push({ ...seg, text: "" });
+				}
+
+				await ffmpeg.deleteFile(segFile);
+				setState({ progress: 40 + Math.round((i / diarizedSegments.length) * 30) });
+			}
+
 			await saveDubData("full-transcript", fullTranscript);
+			setState({ transcript: fullTranscript, progress: 70 });
 
-			setState({ transcript: fullTranscript, progress: 60 });
-
-			// 4. SLICING & MERGING
-			setState({ stage: "slicing", progress: 60 });
+			// 4. SLICING & MERGING for final playback
+			setState({ stage: "slicing", progress: 70 });
 			const finalSpeakers: SpeakerData[] = [];
-			const speakersList = diarization.speakers as string[];
+			const speakersList = Object.values(speakerMapping);
 
 			for (let i = 0; i < speakersList.length; i++) {
 				const speakerId = speakersList[i];
@@ -188,12 +149,12 @@ export function useDub() {
 				
 				if (speakerSegments.length === 0) continue;
 
-				setState({ progress: 60 + Math.round((i / speakersList.length) * 35) });
+				setState({ progress: 70 + Math.round((i / speakersList.length) * 25) });
 
 				const segmentFiles: string[] = [];
 				for (let j = 0; j < speakerSegments.length; j++) {
 					const seg = speakerSegments[j];
-					const segFile = `seg_${speakerId}_${j}.wav`;
+					const segFile = `final_seg_${speakerId}_${j}.wav`;
 					await ffmpeg.exec([
 						"-i", "output.wav",
 						"-ss", seg.start.toString(),
@@ -239,6 +200,12 @@ export function useDub() {
 				await saveDubData(`speaker-${speakerId}-data`, speakerData);
 				finalSpeakers.push(speakerData);
 			}
+
+			setState({
+				stage: "done",
+				progress: 100,
+				speakers: finalSpeakers,
+			});
 
 			setState({
 				stage: "done",
