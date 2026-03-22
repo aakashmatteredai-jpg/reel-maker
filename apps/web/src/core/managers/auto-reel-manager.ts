@@ -1,6 +1,7 @@
 import type { EditorCore } from "@/core";
 import { detectSilence, getSpeakingSegments, mergeSpeakingSegments, splitIntoClips } from "@/lib/auto-reel/silence-detector";
 import { generateUUID } from "@/utils/id";
+import { buildVideoElement } from "@/lib/timeline/element-utils";
 
 export class AutoReelManager {
 	private isProcessing = false;
@@ -60,23 +61,19 @@ export class AutoReelManager {
 			for (const clip of clips) {
 				const clipDuration = clip.end - clip.start;
 				const elementId = generateUUID();
+				const element = buildVideoElement({
+					mediaId: asset.id,
+					name: `${asset.name} (Clip)`,
+					duration: clipDuration,
+					startTime: currentTimelineTime,
+				}) as any;
+
+				element.id = elementId;
+				element.trimStart = clip.start;
+				element.trimEnd = (asset.duration || 0) - clip.end;
 
 				this.editor.timeline.insertElement({
-					element: {
-						type: "video",
-						name: `${asset.name} (Clip)`,
-						mediaId: asset.id,
-						startTime: currentTimelineTime,
-						duration: clipDuration,
-						trimStart: clip.start,
-						trimEnd: (asset.duration || 0) - clip.end,
-						transform: {
-							scale: 1,
-							position: { x: 0, y: 0 },
-							rotate: 0,
-						},
-						opacity: 1,
-					},
+					element,
 					placement: {
 						mode: "explicit",
 						trackId: newTrackId,

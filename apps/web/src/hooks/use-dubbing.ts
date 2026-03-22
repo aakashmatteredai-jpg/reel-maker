@@ -2,6 +2,7 @@ import { useEditor } from "@/hooks/use-editor";
 import { useDubbingStore } from "@/stores/dubbing-store";
 import { generateSpeech } from "@/lib/ai/voiceover";
 import { generateUUID } from "@/utils/id";
+import { buildElementFromMedia } from "@/lib/timeline/element-utils";
 import { toast } from "sonner";
 
 export function useDubbing() {
@@ -45,12 +46,11 @@ export function useDubbing() {
                         character.ttsVoiceId
                     );
 
-                    // 3. Add to Media Manager
-                    const mediaId = generateUUID();
+                    // 3. Add to Media Manager (Let it generate the ID)
                     const file = new File([audioBlob], `dub_${segment.speakerId}_${i}.wav`, { type: "audio/wav" });
                     const url = URL.createObjectURL(file);
 
-                    await editor.media.addMediaAsset({
+                    const mediaId = await editor.media.addMediaAsset({
                         projectId,
                         asset: {
                             file,
@@ -61,26 +61,26 @@ export function useDubbing() {
                         }
                     });
 
-                    // 4. Insert into Timeline
-                    editor.timeline.insertElement({
-                        element: {
-                            type: "audio",
-                            sourceType: "upload",
+                    if (mediaId) {
+                        // 4. Insert into Timeline
+                        const duration = segment.end - segment.start;
+                        const element = buildElementFromMedia({
                             mediaId,
+                            mediaType: "audio",
                             name: `Dub ${character.name}`,
+                            duration,
                             startTime: segment.start,
-                            duration: segment.end - segment.start,
-                            trimStart: 0,
-                            trimEnd: 0,
-                            volume: 1,
-                        },
-                        placement: {
-                            mode: "explicit",
-                            trackId: trackId as string,
-                        }
-                    });
+                        });
 
-                    updateSegment(i, { isDubbed: true });
+                        editor.timeline.insertElement({
+                            element,
+                            placement: {
+                                mode: "explicit",
+                                trackId: trackId as string,
+                            }
+                        });
+                        updateSegment(i, { isDubbed: true });
+                    }
                 } catch (err) {
                     console.error(`Failed to dub segment ${i}:`, err);
                     toast.error(`Segment ${i + 1} failed.`, { id: "dubbing-progress" });
