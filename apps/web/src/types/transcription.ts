@@ -54,9 +54,40 @@ export interface Character {
 	gender: "male" | "female" | "neutral";
 	ttsVoiceId?: string;
 	ttsProvider?: "elevenlabs" | "sarvam";
+    totalDuration: number;
+    color: string;
 }
 
 export interface DubbingSegment extends TranscriptionSegment {
 	dubbedAudioId?: string;
 	isDubbed?: boolean;
+}
+
+export interface DubbingSpeaker {
+	id: string;
+	name: string;
+	gender: "male" | "female" | "neutral";
+	color: string;
+	segments: DubbingSegment[];
+	fullText: string;
+	totalDuration: number;
+	audioUrl?: string; // Blob URL — not persisted, regenerated on load
+	ttsVoiceId?: string;
+	ttsProvider?: "elevenlabs" | "sarvam";
+	confirmed?: boolean;
+}
+
+export interface DubbingProjectSettings {
+	captionsEnabled: boolean;
+	selectedVoices: Record<string, { voiceId: string; provider: "elevenlabs" | "sarvam" }>;
+}
+
+export interface DubbingProject {
+	id: string;
+	name: string;
+	createdAt: number;
+	videoUrl?: string; // Blob URL — not persisted
+	speakers: DubbingSpeaker[];
+	originalSegments: DubbingSegment[];
+	settings: DubbingProjectSettings;
 }
