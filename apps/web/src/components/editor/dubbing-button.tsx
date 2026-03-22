@@ -138,7 +138,7 @@ export function DubbingButton() {
 							</div>
 						</div>
 					) : (
-						<DubPanel />
+						<DubPanel onClose={() => setIsOpen(false)} />
 					)}
 				</DialogContent>
 			</Dialog>

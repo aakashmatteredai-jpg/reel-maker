@@ -305,6 +305,12 @@ export function useDub(assetId?: string) {
 				continue;
 			}
 
+			// Skip if already dubbed (user can clear keys by changing voice)
+			if (seg.dubbedAudioKey) {
+				setState({ progress: Math.round((i / dubbedTranscript.length) * 100) });
+				continue;
+			}
+
 			try {
 				const res = await fetch("/api/tts", {
 					method: "POST",
@@ -369,7 +375,8 @@ export function useDub(assetId?: string) {
 				if (!blob) continue;
 
 				// Create File from Blob
-				const file = new File([blob], `dub-${i}.mp3`, { type: "audio/mpeg" });
+				const extension = blob.type.includes("wav") ? "wav" : "mp3";
+				const file = new File([blob], `dub-${i}.${extension}`, { type: blob.type });
 				
 				// Add to Media Manager
 				const mediaId = await editor.media.addMediaAsset({
@@ -482,6 +489,26 @@ export function useDub(assetId?: string) {
 		}
 	}, [editor, setState, assetId]);
 
+	const updateSpeakerVoice = useCallback((speakerId: string, provider: "elevenlabs" | "sarvam", voiceId: string) => {
+		const currentState = editor.dub.getState();
+		
+		// 1. Update speaker data
+		const updatedSpeakers = currentState.speakers.map(s => 
+			s.id === speakerId ? { ...s, voiceProvider: provider, voiceId } : s
+		);
+
+		// 2. Clear dubbed keys for this speaker in transcript
+		const updatedTranscript = currentState.targetTranscript?.map(s => 
+			s.speaker === speakerId ? { ...s, dubbedAudioKey: undefined } : s
+		);
+
+		setState({ 
+			speakers: updatedSpeakers, 
+			targetTranscript: updatedTranscript,
+			stage: "done" // Reset stage to done so user can click "Generate" again
+		});
+	}, [editor, setState]);
+
 	return {
 		state,
 		startDub,
@@ -489,6 +516,7 @@ export function useDub(assetId?: string) {
 		generateDub,
 		applyToTimeline,
 		mergeAndDownload,
+		updateSpeakerVoice,
 		reset,
 	};
 }

@@ -24,9 +24,10 @@ interface SpeakerPlayerProps {
 	isActive: boolean;
 	onSelect: () => void;
 	mode?: "review" | "voice-selection";
+	onVoiceChange?: (provider: "elevenlabs" | "sarvam", voiceId: string) => void;
 }
 
-export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review" }: SpeakerPlayerProps) {
+export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", onVoiceChange }: SpeakerPlayerProps) {
 	const editor = useEditor();
 	const [audioUrl, setAudioUrl] = useState<string | null>(null);
 	const [currentTime, setCurrentTime] = useState(0);
@@ -83,11 +84,15 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review" }: 
 	};
 
 	const updateVoice = (provider: "elevenlabs" | "sarvam", voiceId: string) => {
-		const speakers = [...editor.dub.getState().speakers];
-		const idx = speakers.findIndex(s => s.id === speaker.id);
-		if (idx !== -1) {
-			speakers[idx] = { ...speaker, voiceProvider: provider, voiceId };
-			editor.dub.updateState({ speakers });
+		if (onVoiceChange) {
+			onVoiceChange(provider, voiceId);
+		} else {
+			const speakers = [...editor.dub.getState().speakers];
+			const idx = speakers.findIndex(s => s.id === speaker.id);
+			if (idx !== -1) {
+				speakers[idx] = { ...speaker, voiceProvider: provider, voiceId };
+				editor.dub.updateState({ speakers });
+			}
 		}
 	};
 

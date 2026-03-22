@@ -32,9 +32,9 @@ import { toast } from "sonner";
 
 type WizardStep = "review" | "language" | "voices" | "ready";
 
-export function DubPanel() {
+export function DubPanel({ onClose }: { onClose?: () => void }) {
 	const editor = useEditor();
-	const { state, reset, translateTranscript, generateDub, applyToTimeline, mergeAndDownload } = useDub();
+	const { state, reset, translateTranscript, generateDub, applyToTimeline, mergeAndDownload, updateSpeakerVoice } = useDub();
 	const [activeSpeakerIdx, setActiveSpeakerIdx] = useState(0);
 	const [step, setStep] = useState<WizardStep>("review");
 	const [selectedLang, setSelectedLang] = useState<string>("hi-IN");
@@ -64,13 +64,16 @@ export function DubPanel() {
 			generateDub();
 		}
 		else if (step === "ready") {
-			applyToTimeline();
+			applyToTimeline().then(() => {
+				if (onClose) onClose();
+			});
 		}
 	};
 
 	const handleBack = () => {
 		if (step === "language") setStep("review");
 		else if (step === "voices") setStep("language");
+		else if (step === "ready") setStep("voices");
 	};
 
 	// If translation finished, move to voices
@@ -233,6 +236,7 @@ export function DubPanel() {
 												isActive={activeSpeakerIdx === idx}
 												onSelect={() => setActiveSpeakerIdx(idx)}
 												mode="voice-selection"
+												onVoiceChange={(p, v) => updateSpeakerVoice(s.id, p, v)}
 											/>
 										))}
 									</div>

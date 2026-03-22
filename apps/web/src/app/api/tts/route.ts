@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
         return new Response(new Uint8Array(audioBuffer), {
             headers: { 
-                "Content-Type": "audio/mpeg",
+                "Content-Type": provider === "elevenlabs" ? "audio/mpeg" : "audio/wav",
                 "Cache-Control": "public, max-age=3600"
             },
         });
