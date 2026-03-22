@@ -97,7 +97,7 @@ export function DubPanel() {
 				</div>
 			</div>
 
-			<div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+			<div className="flex-1 min-h-0 overflow-y-auto p-8">
 				{state.stage === "error" ? (
 					<div className="max-w-md mx-auto space-y-6 pt-12 animate-in zoom-in-95">
 						<div className="size-20 bg-destructive/10 rounded-full flex items-center justify-center mx-auto border border-destructive/20 text-destructive">

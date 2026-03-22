@@ -91,7 +91,7 @@ export function DubbingButton() {
 			</Button>
 
 			<Dialog open={isOpen} onOpenChange={setIsOpen}>
-				<DialogContent className="p-0 sm:max-w-[1000px] max-h-[90vh] flex flex-col overflow-hidden bg-background">
+				<DialogContent className="p-0 sm:max-w-[1000px] h-[90vh] flex flex-col overflow-hidden bg-background">
 					<div className="sr-only">
 						<DialogHeader>
 							<DialogTitle>Dubbing & Voice Over</DialogTitle>
