@@ -84,7 +84,7 @@ export function DubPanel() {
 					return {
 						...s,
 						voiceProvider: (s.id.includes("female") ? "elevenlabs" : "sarvam") as "elevenlabs" | "sarvam",
-						voiceId: s.id.includes("female") ? "21m00Tcm4TlvDq8ikWAM" : "mahesh" // Rachel and Mahesh
+						voiceId: s.id.includes("female") ? "21m00Tcm4TlvDq8ikWAM" : "shubh" // Rachel and Shubh
 					};
 				}
 				return s;

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Select as SelectPrimitive } from "radix-ui";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check } from "lucide-react";
 import { ArrowUpIcon, ArrowDownIcon } from "@hugeicons/core-free-icons";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -120,7 +120,7 @@ const SelectContent = React.forwardRef<
 		<SelectPrimitive.Content
 			ref={ref}
 			className={cn(
-				"bg-popover text-popover-foreground z-50 max-h-(--radix-select-content-available-height) min-w-32 overflow-hidden rounded-md border p-1 shadow-lg",
+				"bg-popover text-popover-foreground z-[300] max-h-(--radix-select-content-available-height) min-w-32 overflow-hidden rounded-md border p-1 shadow-lg",
 				className,
 			)}
 			position={position}

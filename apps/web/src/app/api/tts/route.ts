@@ -45,7 +45,7 @@ export async function POST(req: Request) {
                     inputs: [text],
                     target_language_code: languageCode || "hi-IN",
                     speaker: voiceId,
-                    model: "bulbul:v1"
+                    model: "bulbul:v3"
                 }),
             });
             if (!res.ok) {
