@@ -16,28 +16,55 @@ import { useRouter } from "next/navigation";
 import { FaDiscord } from "react-icons/fa6";
 import { ExportButton } from "./export-button";
 import { AutoReelButton } from "./auto-reel-button";
+import { SmartCutsButton } from "./smart-cuts-button";
+import { AISettingsDialog } from "./dialogs/ai-settings-dialog";
 import { ThemeToggle } from "../theme-toggle";
 import { DEFAULT_LOGO_URL, SOCIAL_LINKS } from "@/constants/site-constants";
 import { toast } from "sonner";
 import { useEditor } from "@/hooks/use-editor";
-import { CommandIcon, Logout05Icon } from "@hugeicons/core-free-icons";
+import { CommandIcon, Logout05Icon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ShortcutsDialog } from "./dialogs/shortcuts-dialog";
 import Image from "next/image";
 import { cn } from "@/utils/ui";
+import { Badge } from "@/components/ui/badge";
+import { ShieldCheckIcon } from "lucide-react";
 
 export function EditorHeader() {
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	
 	return (
-		<header className="bg-background flex h-[3.4rem] items-center justify-between px-3 pt-0.5">
+		<header className="bg-background flex h-[3.4rem] items-center justify-between px-3 pt-0.5 border-b">
 			<div className="flex items-center gap-1">
 				<ProjectDropdown />
 				<EditableProjectName />
 			</div>
+			
+			<div className="hidden md:flex items-center gap-2 pointer-events-none absolute left-1/2 -translate-x-1/2 mt-0.5">
+				<Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 font-medium whitespace-nowrap gap-1 pr-3">
+					<ShieldCheckIcon className="w-3.5 h-3.5" />
+					Runs 100% locally
+				</Badge>
+			</div>
+
 			<nav className="flex items-center gap-2">
 				<AutoReelButton />
+				<SmartCutsButton />
 				<ExportButton />
+				<div className="w-px h-6 bg-border mx-1"></div>
+				<Button 
+					variant="ghost" 
+					size="icon" 
+					className="text-muted-foreground hover:text-foreground p-1 rounded-sm size-8"
+					onClick={() => setSettingsOpen(true)}
+					title="AI Settings"
+				>
+					<HugeiconsIcon icon={Settings01Icon} />
+				</Button>
 				<ThemeToggle />
 			</nav>
+
+			<AISettingsDialog isOpen={settingsOpen} onOpenChange={setSettingsOpen} />
 		</header>
 	);
 }
