@@ -108,11 +108,14 @@ export function DubPanel({ onClose }: { onClose?: () => void }) {
 	}, [state.targetTranscript, state.stage, step]);
 
 	// Use a separate effect to trigger download once when step becomes ready
+	// Actually, let's NOT auto-download, let the user trigger it or just apply.
+	/*
 	useEffect(() => {
 		if (step === "ready") {
 			mergeAndDownload().catch(console.error);
 		}
 	}, [step, mergeAndDownload]);
+	*/
 
 	return (
 		<div className="flex flex-col h-full bg-background min-w-[600px] animate-in fade-in duration-500">
@@ -153,15 +156,16 @@ export function DubPanel({ onClose }: { onClose?: () => void }) {
 						<div className="flex items-center justify-between px-2 mb-8 relative">
 							<div className="absolute top-1/2 left-0 w-full h-0.5 bg-muted -z-10 -translate-y-1/2" />
 							{[
-								{ id: "review", label: "Verification", icon: CheckCircle2 },
-								{ id: "language", label: "Translation", icon: Languages },
-								{ id: "ready", label: "Final Apply", icon: Sparkles },
+								{ id: "review", label: "Verify", icon: CheckCircle2 },
+								{ id: "language", label: "Translate", icon: Languages },
+								{ id: "voices", label: "Voice", icon: Mic2 },
+								{ id: "ready", label: "Apply", icon: Sparkles },
 							].map((s, i) => (
 								<div key={s.id} className="flex flex-col items-center gap-2 bg-background px-4">
 									<div className={cn(
 										"size-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
 										step === s.id ? "bg-primary border-primary text-primary-foreground scale-110 shadow-lg" : 
-										i < ["review", "language", "voices", "ready"].indexOf(step) ? "bg-emerald-500 border-emerald-500 text-white" :
+										["review", "language", "voices", "ready"].indexOf(s.id as WizardStep) < ["review", "language", "voices", "ready"].indexOf(step) ? "bg-emerald-500 border-emerald-500 text-white" :
 										"bg-muted border-muted-foreground/20 text-muted-foreground"
 									)}>
 										<s.icon className="size-5" />
@@ -268,10 +272,18 @@ export function DubPanel({ onClose }: { onClose?: () => void }) {
 												<Languages className="size-5 text-emerald-500" />
 												<div className="text-left">
 													<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Target</p>
-													<p className="text-sm font-medium">Translated</p>
+													<p className="text-sm font-medium">{DUB_LANGUAGES.find(l => l.code === state.targetLanguage)?.label || "Translated"}</p>
 												</div>
 											</div>
 										</div>
+										<Button 
+											variant="outline" 
+											onClick={() => mergeAndDownload()} 
+											className="w-full gap-2 h-10 rounded-xl"
+										>
+											<Combine className="size-4" />
+											Download Full Dub File
+										</Button>
 									</div>
 								</div>
 							)}

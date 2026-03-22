@@ -30,6 +30,8 @@ interface SpeakerPlayerProps {
 export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", onVoiceChange }: SpeakerPlayerProps) {
 	const editor = useEditor();
 	const [audioUrl, setAudioUrl] = useState<string | null>(null);
+	const [dubbedAudioUrl, setDubbedAudioUrl] = useState<string | null>(null);
+	const [playbackMode, setPlaybackMode] = useState<"original" | "dubbed">("original");
 	const [currentTime, setCurrentTime] = useState(0);
 	const [editingIdx, setEditingIdx] = useState<number | null>(null);
 	const audioRef = useRef<HTMLAudioElement>(null);
@@ -44,12 +46,20 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", on
 			if (blob) {
 				setAudioUrl(URL.createObjectURL(blob));
 			}
+			
+			if (speaker.mergedDubbedAudioKey) {
+				const dubbedBlob = await getAudioBlob(speaker.mergedDubbedAudioKey);
+				if (dubbedBlob) {
+					setDubbedAudioUrl(URL.createObjectURL(dubbedBlob));
+				}
+			}
 		}
 		loadAudio();
 		return () => {
 			if (audioUrl) URL.revokeObjectURL(audioUrl);
+			if (dubbedAudioUrl) URL.revokeObjectURL(dubbedAudioUrl);
 		};
-	}, [speaker.mergedAudioKey]);
+	}, [speaker.mergedAudioKey, speaker.mergedDubbedAudioKey]);
 
 	const handleTimeUpdate = () => {
 		if (audioRef.current) {
@@ -127,7 +137,31 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", on
 						</div>
 					</div>
 				</div>
-				{isActive && <Volume2 className="size-4 text-primary animate-pulse" />}
+				<div className="flex items-center gap-3">
+					{dubbedAudioUrl && (
+						<div className="flex bg-muted rounded-lg p-0.5 border shadow-sm">
+							<button 
+								onClick={(e) => { e.stopPropagation(); setPlaybackMode("original"); }}
+								className={cn(
+									"px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+									playbackMode === "original" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+								)}
+							>
+								ORIGINAL
+							</button>
+							<button 
+								onClick={(e) => { e.stopPropagation(); setPlaybackMode("dubbed"); }}
+								className={cn(
+									"px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+									playbackMode === "dubbed" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+								)}
+							>
+								DUBBED
+							</button>
+						</div>
+					)}
+					{isActive && <Volume2 className="size-4 text-primary animate-pulse" />}
+				</div>
 			</div>
 
 			{isActive && (
@@ -176,10 +210,10 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", on
 						</div>
 					) : (
 						<>
-							{audioUrl && (
+							{((playbackMode === "original" ? audioUrl : dubbedAudioUrl) || audioUrl) && (
 								<audio 
 									ref={audioRef}
-									src={audioUrl} 
+									src={(playbackMode === "original" ? audioUrl : dubbedAudioUrl) || audioUrl || ""} 
 									controls 
 									className="w-full h-10 rounded-lg shadow-inner bg-background shrink-0" 
 									onTimeUpdate={handleTimeUpdate}
@@ -244,9 +278,15 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review", on
 										) : (
 											<>
 												<div className="flex items-center justify-between mb-1">
-													<div className="flex items-center gap-2 opacity-50 text-[10px] font-mono">
+													<div className="flex items-center gap-2 opacity-100 text-[10px] font-mono">
 														<span className="bg-primary/10 text-primary px-1 rounded">{(seg.mergedStart || 0).toFixed(1)}s</span>
-														<span>Video: {seg.start.toFixed(1)}s - {seg.end.toFixed(1)}s</span>
+														<span className="text-muted-foreground opacity-50">Video: {seg.start.toFixed(1)}s - {seg.end.toFixed(1)}s</span>
+														{seg.dubbedAudioKey && (
+															<div className="flex items-center gap-1 text-emerald-500 font-bold bg-emerald-500/10 px-1 rounded animate-in fade-in zoom-in">
+																<Check className="size-2.5" />
+																<span>DUBBED</span>
+															</div>
+														)}
 													</div>
 													<Button 
 														variant="ghost" 

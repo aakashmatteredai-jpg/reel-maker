@@ -8,9 +8,11 @@ import { useCaptionStore } from "@/stores/caption-store";
 import { useKeyframeSelection } from "../timeline/element/use-keyframe-selection";
 import { getElementsAtTime } from "@/lib/timeline";
 import { toast } from "sonner";
+import { useDub } from "../use-dub";
 
 export function useEditorActions() {
 	const editor = useEditor();
+	const { applyToTimeline } = useDub();
 	const activeProject = editor.project.getActive();
 	const { selectedElements, setElementSelection } = useElementSelection();
 	const { selectedKeyframes, clearKeyframeSelection } = useKeyframeSelection();
@@ -374,6 +376,13 @@ export function useEditorActions() {
 		() => {
 			const { enabled, setEnabled } = useCaptionStore.getState();
 			setEnabled(!enabled);
+		},
+		undefined,
+	);
+	useActionHandler(
+		"apply-dubbing",
+		async () => {
+			await applyToTimeline();
 		},
 		undefined,
 	);

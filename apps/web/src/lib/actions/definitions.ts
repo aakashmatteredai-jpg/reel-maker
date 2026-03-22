@@ -155,6 +155,10 @@ export const ACTIONS = {
 		category: "controls",
 		defaultShortcuts: ["c"],
 	},
+	"apply-dubbing": {
+		description: "Apply AI Dubbing to Timeline",
+		category: "editing",
+	},
 } as const satisfies Record<string, TActionDefinition>;
 
 export type TAction = keyof typeof ACTIONS;

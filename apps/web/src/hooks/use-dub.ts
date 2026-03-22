@@ -365,10 +365,64 @@ export function useDub(assetId?: string) {
 
 		setState({ 
 			targetTranscript: dubbedTranscript, 
+			stage: "merging", // Temporarily set to merging
+			progress: 100 
+		});
+
+		// 2. Merge dubbed segments for each speaker for easy preview/playback
+		const ffmpeg = await getFFmpeg();
+		const updatedSpeakers = [...speakers];
+
+		for (let i = 0; i < updatedSpeakers.length; i++) {
+			const speaker = updatedSpeakers[i];
+			const speakerSegments = dubbedTranscript.filter(s => s.speaker === speaker.id && s.dubbedAudioKey);
+			
+			if (speakerSegments.length === 0) continue;
+
+			try {
+				const segmentFiles: string[] = [];
+				for (let j = 0; j < speakerSegments.length; j++) {
+					const seg = speakerSegments[j];
+					const blob = await getAudioBlob(seg.dubbedAudioKey!);
+					if (blob) {
+						const segFile = `dub_seg_${speaker.id}_${j}.mp3`;
+						await ffmpeg.writeFile(segFile, await fetchFile(blob));
+						segmentFiles.push(segFile);
+					}
+				}
+
+				if (segmentFiles.length > 0) {
+					const concatList = segmentFiles.map(f => `file '${f}'`).join("\n");
+					await ffmpeg.writeFile(`dub_list_${speaker.id}.txt`, concatList);
+
+					const mergedFile = `dub_merged_${speaker.id}.mp3`;
+					await ffmpeg.exec([
+						"-f", "concat",
+						"-safe", "0",
+						"-i", `dub_list_${speaker.id}.txt`,
+						"-c", "copy",
+						mergedFile
+					]);
+
+					const mergedData = await ffmpeg.readFile(mergedFile) as Uint8Array;
+					const mergedBlob = new Blob([mergedData.buffer as any], { type: "audio/mp3" });
+					const mergedKey = `speaker-${speaker.id}-dubbed-audio`;
+					await saveAudioBlob(mergedKey, mergedBlob);
+					
+					updatedSpeakers[i] = { ...speaker, mergedDubbedAudioKey: mergedKey };
+				}
+			} catch (err) {
+				console.error(`Failed to merge dubbed audio for speaker ${speaker.id}:`, err);
+			}
+		}
+
+		setState({ 
+			targetTranscript: dubbedTranscript, 
+			speakers: updatedSpeakers,
 			stage: "done", 
 			progress: 100 
 		});
-		toast.success("Dubbing generated successfully!");
+		toast.success("Dubbing generated and merged successfully!");
 	}, [editor, setState, assetId]);
 
 	const applyToTimeline = useCallback(async () => {

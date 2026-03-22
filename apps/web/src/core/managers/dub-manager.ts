@@ -25,6 +25,7 @@ export interface SpeakerData {
 	id: string;
 	segments: SpeakerSegment[];
 	mergedAudioKey: string;
+	mergedDubbedAudioKey?: string;
 	totalDuration: number;
 	voiceProvider?: "elevenlabs" | "sarvam";
 	voiceId?: string;
