@@ -145,7 +145,31 @@ export function useDub() {
 			});
 
 			if (!diarizeRes.ok) throw new Error(`Diarization failed: ${diarizeRes.statusText}`);
-			const diarization = await diarizeRes.json();
+			const diarizationRaw = await diarizeRes.json();
+			// result: { speakers: string[], segments: [{speaker, start, end}] }
+			
+			// 1. Sort raw speakers by their FIRST appearance time
+			const sortedRawSpeakers = [...diarizationRaw.speakers].sort((a, b) => {
+				const firstA = diarizationRaw.segments.find((s: any) => s.speaker === a)?.start || 0;
+				const firstB = diarizationRaw.segments.find((s: any) => s.speaker === b)?.start || 0;
+				return firstA - firstB;
+			});
+
+			// 2. Create a mapping to "Speaker 1", "Speaker 2"...
+			const speakerMapping: Record<string, string> = {};
+			sortedRawSpeakers.forEach((rawId, idx) => {
+				speakerMapping[rawId] = `Speaker ${idx + 1}`;
+			});
+
+			// 3. Transform segments with new names
+			const diarization = {
+				speakers: sortedRawSpeakers.map(id => speakerMapping[id]),
+				segments: diarizationRaw.segments.map((s: any) => ({
+					...s,
+					speaker: speakerMapping[s.speaker]
+				}))
+			};
+
 			await saveDubData("diarization", diarization);
 
 			const fullTranscript = mergeTranscriptWithSpeakers(allSarvamSegments, diarization.segments);

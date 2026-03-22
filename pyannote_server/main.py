@@ -28,21 +28,30 @@ async def diarize(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
+        # Run the standard pipeline
+        # Note: We don't specify num_speakers because we want it to be automatic
         diarization = pipeline(tmp_path)
+        
         segments = []
-        seen_speakers = set()
+        raw_speakers = set()
 
         for turn, _, speaker in diarization.itertracks(yield_label=True):
-            seen_speakers.add(speaker)
+            raw_speakers.add(speaker)
             segments.append({
                 "speaker": speaker,
                 "start": round(turn.start, 3),
                 "end": round(turn.end, 3)
             })
 
+        # Return the results
+        # Sorting and renaming is now handled by the frontend for better flexibility
         return {
-            "speakers": list(seen_speakers),
+            "speakers": list(raw_speakers),
             "segments": segments
         }
+    except Exception as e:
+        print(f"Diarization error: {e}")
+        return {"speakers": [], "segments": [], "error": str(e)}
     finally:
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
