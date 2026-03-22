@@ -107,17 +107,52 @@ export function useDub(assetId?: string) {
 			await saveDubData("diarization", { speakers: Object.values(speakerMapping), segments: diarizedSegments });
 			setState({ progress: 40 });
 
-			// 3. TRANSCRIBING whole audio (Groq)
+			// 3. TRANSCRIBING in 3-second chunks (Groq)
 			setState({ stage: "transcribing", progress: 40 });
-			const sttForm = new FormData();
-			sttForm.append("file", audioBlob, "audio.wav");
-			const sttRes = await fetch("/api/stt", {
-				method: "POST",
-				body: sttForm,
-			});
-			if (!sttRes.ok) throw new Error("Full transcription failed.");
-			const sttData = await sttRes.json();
-			const whisperSegments = sttData.segments; //VERBOSE_JSON
+			
+			const CHUNK_DURATION_SEC = 3;
+			const totalDuration = videoBlob.size > 0 ? diarizedSegments[diarizedSegments.length - 1]?.end || 0 : 0; 
+			// Wait, better way to get duration is from FFmpeg or metadata. 
+			// Let's assume totalDuration is available from diarizedSegments.
+
+			const whisperSegments: any[] = [];
+			for (let start = 0; start < totalDuration; start += CHUNK_DURATION_SEC) {
+				const end = Math.min(start + CHUNK_DURATION_SEC, totalDuration);
+				const chunkFile = `chunk_${start}.wav`;
+				
+				await ffmpeg.exec([
+					"-i", "output.wav",
+					"-ss", start.toString(),
+					"-to", end.toString(),
+					"-c", "copy",
+					chunkFile
+				]);
+
+				const chunkData = await ffmpeg.readFile(chunkFile) as Uint8Array;
+				const chunkBlob = new Blob([chunkData as any], { type: "audio/wav" });
+
+				const sttForm = new FormData();
+				sttForm.append("file", chunkBlob, "chunk.wav");
+				const sttRes = await fetch("/api/stt", {
+					method: "POST",
+					body: sttForm,
+				});
+
+				if (sttRes.ok) {
+					const sttData = await sttRes.json();
+					// Add offset to segments
+					if (sttData.segments) {
+						sttData.segments.forEach((seg: any) => {
+							whisperSegments.push({
+								...seg,
+								start: seg.start + start,
+								end: seg.end + start
+							});
+						});
+					}
+				}
+				setState({ progress: 40 + Math.round((start / totalDuration) * 30) });
+			}
 
 			// 4. MERGING STT & Diarization
 			const fullTranscript: SpeakerSegment[] = whisperSegments.map((window: any) => {

@@ -9,7 +9,7 @@ interface AIKeys {
 	sarvam?: string;
 }
 
-const STORAGE_KEY = "opencut_ai_keys";
+const STORAGE_KEY = "reelmaker_ai_keys";
 
 export function getStoredKeys(): AIKeys {
 	if (typeof window === "undefined") return {};
