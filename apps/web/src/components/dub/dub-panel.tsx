@@ -34,7 +34,7 @@ type WizardStep = "review" | "language" | "voices" | "ready";
 
 export function DubPanel() {
 	const editor = useEditor();
-	const { state, reset, translateTranscript, generateDub, applyToTimeline } = useDub();
+	const { state, reset, translateTranscript, generateDub, applyToTimeline, mergeAndDownload } = useDub();
 	const [activeSpeakerIdx, setActiveSpeakerIdx] = useState(0);
 	const [step, setStep] = useState<WizardStep>("review");
 	const [selectedLang, setSelectedLang] = useState<string>("hi-IN");
@@ -51,9 +51,6 @@ export function DubPanel() {
 
 	// Auto-navigate steps based on progress
 	useEffect(() => {
-		if (state.stage === "done" && step === "review" && state.speakers.length > 0) {
-			// Stay in review
-		}
 		if (state.stage === "translating") setStep("language");
 		if (state.stage === "dubbing") setStep("voices");
 	}, [state.stage]);
@@ -65,6 +62,9 @@ export function DubPanel() {
 		}
 		else if (step === "voices") {
 			generateDub();
+		}
+		else if (step === "ready") {
+			applyToTimeline();
 		}
 	};
 
@@ -84,18 +84,32 @@ export function DubPanel() {
 					return {
 						...s,
 						voiceProvider: (s.id.includes("female") ? "elevenlabs" : "sarvam") as "elevenlabs" | "sarvam",
-						voiceId: s.id.includes("female") ? "21m00Tcm4TlvDq8ikWAM" : "shubh" // Rachel and Shubh
+						voiceId: s.id.includes("female") ? "21m00Tcm4TlvDq8ikWAM" : "shubh"
 					};
 				}
 				return s;
 			});
 			
-			// Only update if changes were made to avoid infinite loops
 			if (JSON.stringify(updatedSpeakers) !== JSON.stringify(state.speakers)) {
 				editor.dub.updateState({ speakers: updatedSpeakers });
 			}
 		}
 	}, [state.targetTranscript, state.stage, state.speakers, step]);
+
+	// If dubbing finished, move to ready
+	useEffect(() => {
+		const isFinished = state.targetTranscript?.every(s => !s.text || s.dubbedAudioKey);
+		if (isFinished && step === "voices" && state.stage === "done") {
+			setStep("ready");
+		}
+	}, [state.targetTranscript, state.stage, step]);
+
+	// Use a separate effect to trigger download once when step becomes ready
+	useEffect(() => {
+		if (step === "ready") {
+			mergeAndDownload().catch(console.error);
+		}
+	}, [step, mergeAndDownload]);
 
 	return (
 		<div className="flex flex-col h-full bg-background min-w-[600px] animate-in fade-in duration-500">
@@ -138,13 +152,13 @@ export function DubPanel() {
 							{[
 								{ id: "review", label: "Verification", icon: CheckCircle2 },
 								{ id: "language", label: "Translation", icon: Languages },
-								{ id: "voices", label: "Voice Casting", icon: Mic2 },
+								{ id: "ready", label: "Final Apply", icon: Sparkles },
 							].map((s, i) => (
 								<div key={s.id} className="flex flex-col items-center gap-2 bg-background px-4">
 									<div className={cn(
 										"size-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
 										step === s.id ? "bg-primary border-primary text-primary-foreground scale-110 shadow-lg" : 
-										i < ["review", "language", "voices"].indexOf(step) ? "bg-emerald-500 border-emerald-500 text-white" :
+										i < ["review", "language", "voices", "ready"].indexOf(step) ? "bg-emerald-500 border-emerald-500 text-white" :
 										"bg-muted border-muted-foreground/20 text-muted-foreground"
 									)}>
 										<s.icon className="size-5" />
@@ -186,7 +200,7 @@ export function DubPanel() {
 										<div className="space-y-2">
 											<h4 className="text-2xl font-bold italic tracking-tight">Target language</h4>
 											<p className="text-sm text-muted-foreground leading-relaxed">
-												Select the language you want to translate the video into. We use Groq Cloud (Llama 3.3 70B) for near-native accuracy.
+												Select the language you want to translate the video into. We use Groq Cloud for near-native accuracy.
 											</p>
 										</div>
 										<Select value={selectedLang} onValueChange={setSelectedLang}>
@@ -224,6 +238,39 @@ export function DubPanel() {
 									</div>
 								</div>
 							)}
+
+							{step === "ready" && (
+								<div className="max-w-md mx-auto space-y-8 py-12 text-center animate-in zoom-in-95">
+									<div className="size-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto border-2 border-emerald-500/20">
+										<CheckCircle2 className="size-12 text-emerald-500" />
+									</div>
+									<div className="space-y-4">
+										<div className="space-y-2">
+											<h4 className="text-2xl font-bold italic tracking-tight">Dubbing Ready!</h4>
+											<p className="text-sm text-muted-foreground leading-relaxed">
+												All AI voice segments have been generated successfully. Click below to add them to your project as a new layer.
+											</p>
+										</div>
+										<div className="p-4 bg-muted/30 rounded-xl border flex items-center justify-between">
+											<div className="flex items-center gap-3">
+												<Mic2 className="size-5 text-primary" />
+												<div className="text-left">
+													<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Original</p>
+													<p className="text-sm font-medium">Auto-detected</p>
+												</div>
+											</div>
+											<div className="size-1 rounded-full bg-border" />
+											<div className="flex items-center gap-3">
+												<Languages className="size-5 text-emerald-500" />
+												<div className="text-left">
+													<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Target</p>
+													<p className="text-sm font-medium">Translated</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							)}
 						</div>
 
 						{/* Footer Actions */}
@@ -252,7 +299,7 @@ export function DubPanel() {
 									<>
 										{step === "review" ? "Confirm Detections" : 
 										 step === "language" ? "Translate Transcript" : 
-										 step === "voices" ? "Generate Final Dub" : "Apply to Timeline"}
+										 step === "voices" ? "Generate Final Dub" : "Apply to Project Timeline"}
 										<ChevronRight className="size-4" />
 									</>
 								)}

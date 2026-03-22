@@ -389,7 +389,7 @@ export function useDub(assetId?: string) {
 							id: `dub-el-${i}-${Date.now()}`,
 							type: "audio",
 							mediaId,
-							startTime: seg.mergedStart || 0,
+							startTime: seg.start,
 							duration: seg.end - seg.start,
 							trimStart: 0,
 							trimEnd: 0,
@@ -418,12 +418,77 @@ export function useDub(assetId?: string) {
 		toast.success(`Successfully added ${count} AI voice segments!`);
 	}, [editor, setState]);
 
+	const mergeAndDownload = useCallback(async () => {
+		const currentState = editor.dub.getState();
+		if (!currentState.targetTranscript || currentState.targetTranscript.length === 0) return;
+
+		try {
+			setState({ stage: "merging", progress: 0 });
+			const ffmpeg = await getFFmpeg();
+			const dubbedSegments = currentState.targetTranscript.filter(s => s.dubbedAudioKey);
+			
+			if (dubbedSegments.length === 0) return;
+
+			// Write all segments to FFmpeg
+			for (let i = 0; i < dubbedSegments.length; i++) {
+				const seg = dubbedSegments[i];
+				const blob = await getAudioBlob(seg.dubbedAudioKey!);
+				if (blob) {
+					await ffmpeg.writeFile(`seg_${i}.mp3`, await fetchFile(blob));
+				}
+			}
+
+			// Build complex filter for amix with delays
+			// Example: [0:a]adelay=1000|1000[a0]; [1:a]adelay=5000|5000[a1]; [a0][a1]amix=inputs=2
+			let filter = "";
+			for (let i = 0; i < dubbedSegments.length; i++) {
+				const delayMs = Math.round(dubbedSegments[i].start * 1000);
+				filter += `[${i}:a]adelay=${delayMs}|${delayMs}[a${i}];`;
+			}
+			for (let i = 0; i < dubbedSegments.length; i++) {
+				filter += `[a${i}]`;
+			}
+			filter += `amix=inputs=${dubbedSegments.length}:normalize=0[out]`;
+
+			const inputs: string[] = [];
+			for (let i = 0; i < dubbedSegments.length; i++) {
+				inputs.push("-i", `seg_${i}.mp3`);
+			}
+
+			await ffmpeg.exec([
+				...inputs,
+				"-filter_complex", filter,
+				"-map", "[out]",
+				"-ac", "2",
+				"full_dub.mp3"
+			]);
+
+			const data = await ffmpeg.readFile("full_dub.mp3") as Uint8Array;
+			const blob = new Blob([data.buffer as any], { type: "audio/mp3" });
+			const url = URL.createObjectURL(blob);
+			
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `dubbed_audio_${assetId || "project"}.mp3`;
+			a.click();
+			URL.revokeObjectURL(url);
+			
+			toast.success("Full dubbed audio downloaded!");
+			setState({ stage: "done", progress: 100 });
+		} catch (err) {
+			console.error("Merging for download failed:", err);
+			toast.error("Failed to merge audio for download.");
+			setState({ stage: "done", progress: 100 });
+		}
+	}, [editor, setState, assetId]);
+
 	return {
 		state,
 		startDub,
 		translateTranscript,
 		generateDub,
 		applyToTimeline,
+		mergeAndDownload,
 		reset,
 	};
 }
