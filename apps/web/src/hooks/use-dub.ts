@@ -107,61 +107,42 @@ export function useDub(assetId?: string) {
 			await saveDubData("diarization", { speakers: Object.values(speakerMapping), segments: diarizedSegments });
 			setState({ progress: 40 });
 
-			// 3. TRANSCRIBING per segment
+			// 3. TRANSCRIBING whole audio (Groq)
 			setState({ stage: "transcribing", progress: 40 });
-			const sarvamKey = process.env.NEXT_PUBLIC_SARVAM_API_KEY;
-			if (!sarvamKey) throw new Error("Sarvam API key missing.");
+			const sttForm = new FormData();
+			sttForm.append("file", audioBlob, "audio.wav");
+			const sttRes = await fetch("/api/stt", {
+				method: "POST",
+				body: sttForm,
+			});
+			if (!sttRes.ok) throw new Error("Full transcription failed.");
+			const sttData = await sttRes.json();
+			const whisperSegments = sttData.segments; //VERBOSE_JSON
 
-			const fullTranscript: SpeakerSegment[] = [];
-			for (let i = 0; i < diarizedSegments.length; i++) {
-				const seg = diarizedSegments[i];
-				const segFile = `transcribe_seg_${i}.wav`;
+			// 4. MERGING STT & Diarization
+			const fullTranscript: SpeakerSegment[] = whisperSegments.map((window: any) => {
+				const wStart = window.start;
+				const wEnd = window.end;
 				
-				// Slice audio for this segment
-				await ffmpeg.exec([
-					"-i", "output.wav",
-					"-ss", seg.start.toString(),
-					"-to", seg.end.toString(),
-					"-c", "copy",
-					segFile
-				]);
+				// Find best speaker overlap
+				let bestSpeaker = "Unknown";
+				let maxOverlap = 0;
 
-				const segData = await ffmpeg.readFile(segFile) as Uint8Array;
-				if (segData.length > 1000) {
-					const segBlob = new Blob([segData as any], { type: "audio/wav" });
-					const sarvamForm = new FormData();
-					sarvamForm.append("file", segBlob, "audio.wav");
-					sarvamForm.append("language_code", "hi-IN");
-					sarvamForm.append("model", "saarika:v2.5");
-
-					try {
-						const sarvamRes = await fetch("https://api.sarvam.ai/speech-to-text", {
-							method: "POST",
-							headers: { "api-subscription-key": sarvamKey },
-							body: sarvamForm,
-						});
-
-						if (sarvamRes.ok) {
-							const data = await sarvamRes.json();
-							fullTranscript.push({
-								speaker: seg.speaker,
-								start: seg.start,
-								end: seg.end,
-								text: data.transcript || "",
-							});
-						} else {
-							fullTranscript.push({ ...seg, text: "" });
-						}
-					} catch (e) {
-						fullTranscript.push({ ...seg, text: "" });
+				for (const dSeg of diarizedSegments) {
+					const overlap = Math.max(0, Math.min(wEnd, dSeg.end) - Math.max(wStart, dSeg.start));
+					if (overlap > maxOverlap) {
+						maxOverlap = overlap;
+						bestSpeaker = dSeg.speaker;
 					}
-				} else {
-					fullTranscript.push({ ...seg, text: "" });
 				}
 
-				await ffmpeg.deleteFile(segFile);
-				setState({ progress: 40 + Math.round((i / diarizedSegments.length) * 30) });
-			}
+				return {
+					speaker: bestSpeaker,
+					start: wStart,
+					end: wEnd,
+					text: window.text.trim()
+				};
+			});
 
 			await saveDubData("full-transcript", fullTranscript);
 			setState({ transcript: fullTranscript, progress: 70 });
