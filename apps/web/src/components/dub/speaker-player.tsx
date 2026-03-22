@@ -153,7 +153,10 @@ export function SpeakerPlayer({ speaker, isActive, onSelect, mode = "review" }: 
 									value={speaker.voiceId || ""} 
 									onValueChange={(val) => updateVoice(speaker.voiceProvider || "sarvam", val)}
 								>
-									<SelectTrigger className="h-12 text-sm rounded-xl border-2 hover:border-primary transition-all bg-background">
+									<SelectTrigger 
+										className="h-12 text-sm rounded-xl border-2 hover:border-primary transition-all bg-background"
+										onPointerDown={(e) => e.stopPropagation()}
+									>
 										<SelectValue placeholder="Select Voice" />
 									</SelectTrigger>
 									<SelectContent>

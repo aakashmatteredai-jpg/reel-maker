@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
     try {
         const { text, targetLanguage, provider, apiKey } = await req.json();
-        const finalApiKey = apiKey || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+        const finalApiKey = apiKey || process.env.GROQ_API_KEY || process.env.GROQ_API || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
 
         if (!text || !targetLanguage || !finalApiKey) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });

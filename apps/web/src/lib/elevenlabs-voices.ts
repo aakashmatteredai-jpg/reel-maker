@@ -1,0 +1,16 @@
+export const ELEVENLABS_VOICES = [
+    { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (Female) - Narration", gender: "female" },
+    { id: "AZnzlk1XvdDHEbmztWCj", name: "Domi (Female) - Strong", gender: "female" },
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella (Female) - Soft", gender: "female" },
+    { id: "MF3mGyEYCl7XYW7L4ZpY", name: "Antoni (Male) - Well-rounded", gender: "male" },
+    { id: "pNInz6obpgDQGcFmaJgB", name: "Adam (Male) - Deep", gender: "male" },
+    { id: "VR6AewrXP667Ds64No6C", name: "Josh (Male) - Casual", gender: "male" },
+    { id: "ErXwSot6Cc08p96S6q7F", name: "Arnold (Male) - Crisp", gender: "male" },
+    { id: "N2lVS1wzCLpce5h3G9H8", name: "Callum (Male) - Hoarse", gender: "male" },
+    { id: "IKne3meq5pSbb9bg4UTM", name: "Charlie (Male) - Australian", gender: "male" },
+    { id: "XB0fDUnXUByS2M7s0Tk1", name: "Charlotte (Female) - Seductive", gender: "female" },
+    { id: "iP95p4Hdb998W864O13P", name: "Chris (Male) - Casual", gender: "male" },
+    { id: "2EiwWnXFfSg7jSXY7l1E", name: "Clyde (Male) - Veteran", gender: "male" },
+    { id: "onw0X6e6g3p8G7N9H13P", name: "Daniel (Male) - News", gender: "male" },
+    { id: "Lcf7vcH9nyRAU1aWgr6H", name: "Liam (Male) - Young", gender: "male" },
+];

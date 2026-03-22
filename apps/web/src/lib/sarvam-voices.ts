@@ -1,0 +1,18 @@
+export const SARVAM_VOICES = [
+    { id: "meera", name: "Meera (Female) - Professional", gender: "female" },
+    { id: "pavithra", name: "Pavithra (Female) - Dramatic", gender: "female" },
+    { id: "mahesh", name: "Mahesh (Male) - Balanced", gender: "male" },
+    { id: "kumar", name: "Kumar (Male) - Narration", gender: "male" },
+    { id: "shubh", name: "Shubh (Male) - Friendly", gender: "male" },
+    { id: "priya", name: "Priya (Female) - Upbeat", gender: "female" },
+    { id: "suhani", name: "Suhani (Female) - Soothing", gender: "female" },
+    { id: "ashutosh", name: "Ashutosh (Male) - Traditional", gender: "male" },
+    { id: "ritu", name: "Ritu (Female) - Approachable", gender: "female" },
+    { id: "amit", name: "Amit (Male) - Formal", gender: "male" },
+    { id: "sumit", name: "Sumit (Male) - Warm", gender: "male" },
+    { id: "pooja", name: "Pooja (Female) - Encouraging", gender: "female" },
+    { id: "manan", name: "Manan (Male) - Consistent", gender: "male" },
+    { id: "simran", name: "Simran (Female) - Conversational", gender: "female" },
+    { id: "rahul", name: "Rahul (Male) - Composed", gender: "male" },
+    { id: "kavya", name: "Kavya (Female) - Everyday", gender: "female" },
+];

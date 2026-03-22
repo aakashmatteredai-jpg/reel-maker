@@ -17,6 +17,7 @@ import {
 	ArrowLeft,
 	Sparkles
 } from "lucide-react";
+import { useEditor } from "@/hooks/use-editor";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { DUB_LANGUAGES } from "@/lib/voices";
@@ -32,6 +33,7 @@ import { toast } from "sonner";
 type WizardStep = "review" | "language" | "voices" | "ready";
 
 export function DubPanel() {
+	const editor = useEditor();
 	const { state, reset, translateTranscript, generateDub, applyToTimeline } = useDub();
 	const [activeSpeakerIdx, setActiveSpeakerIdx] = useState(0);
 	const [step, setStep] = useState<WizardStep>("review");
@@ -75,8 +77,25 @@ export function DubPanel() {
 	useEffect(() => {
 		if (state.targetTranscript && step === "language" && state.stage === "done") {
 			setStep("voices");
+			
+			// Initialize default voices if not set
+			const updatedSpeakers = state.speakers.map(s => {
+				if (!s.voiceId) {
+					return {
+						...s,
+						voiceProvider: (s.id.includes("female") ? "elevenlabs" : "sarvam") as "elevenlabs" | "sarvam",
+						voiceId: s.id.includes("female") ? "21m00Tcm4TlvDq8ikWAM" : "mahesh" // Rachel and Mahesh
+					};
+				}
+				return s;
+			});
+			
+			// Only update if changes were made to avoid infinite loops
+			if (JSON.stringify(updatedSpeakers) !== JSON.stringify(state.speakers)) {
+				editor.dub.updateState({ speakers: updatedSpeakers });
+			}
 		}
-	}, [state.targetTranscript, state.stage]);
+	}, [state.targetTranscript, state.stage, state.speakers, step]);
 
 	return (
 		<div className="flex flex-col h-full bg-background min-w-[600px] animate-in fade-in duration-500">
