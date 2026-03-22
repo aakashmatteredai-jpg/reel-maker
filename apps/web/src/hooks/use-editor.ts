@@ -20,6 +20,7 @@ export function useEditor(): EditorCore {
 				editor.media.subscribe(handleStoreChange),
 				editor.renderer.subscribe(handleStoreChange),
 				editor.selection.subscribe(handleStoreChange),
+				editor.autoReel.subscribe(handleStoreChange),
 			];
 
 			return () => {

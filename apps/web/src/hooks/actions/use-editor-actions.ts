@@ -6,6 +6,7 @@ import { useEditor } from "../use-editor";
 import { useElementSelection } from "../timeline/element/use-element-selection";
 import { useKeyframeSelection } from "../timeline/element/use-keyframe-selection";
 import { getElementsAtTime } from "@/lib/timeline";
+import { toast } from "sonner";
 
 export function useEditorActions() {
 	const editor = useEditor();
@@ -350,6 +351,20 @@ export function useEditorActions() {
 		"redo",
 		() => {
 			editor.command.redo();
+		},
+		undefined,
+	);
+	useActionHandler(
+		"auto-reel",
+		async () => {
+			try {
+				await editor.autoReel.generate();
+			} catch (error) {
+				toast.error("Auto Reel failed", {
+					description:
+						error instanceof Error ? error.message : "Please try again",
+				});
+			}
 		},
 		undefined,
 	);

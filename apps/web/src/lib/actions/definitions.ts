@@ -146,6 +146,10 @@ export const ACTIONS = {
 		category: "history",
 		defaultShortcuts: ["ctrl+shift+z", "ctrl+y"],
 	},
+	"auto-reel": {
+		description: "✨ Auto Reel",
+		category: "editing",
+	},
 } as const satisfies Record<string, TActionDefinition>;
 
 export type TAction = keyof typeof ACTIONS;

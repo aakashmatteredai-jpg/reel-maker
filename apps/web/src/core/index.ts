@@ -8,6 +8,7 @@ import { CommandManager } from "./managers/commands";
 import { SaveManager } from "./managers/save-manager";
 import { AudioManager } from "./managers/audio-manager";
 import { SelectionManager } from "./managers/selection-manager";
+import { AutoReelManager } from "./managers/auto-reel-manager";
 import { registerDefaultEffects } from "@/lib/effects";
 
 export class EditorCore {
@@ -23,6 +24,7 @@ export class EditorCore {
 	public readonly save: SaveManager;
 	public readonly audio: AudioManager;
 	public readonly selection: SelectionManager;
+	public readonly autoReel: AutoReelManager;
 
 	private constructor() {
 		registerDefaultEffects();
@@ -36,6 +38,7 @@ export class EditorCore {
 		this.save = new SaveManager(this);
 		this.audio = new AudioManager(this);
 		this.selection = new SelectionManager(this);
+		this.autoReel = new AutoReelManager(this);
 		this.save.start();
 	}
 

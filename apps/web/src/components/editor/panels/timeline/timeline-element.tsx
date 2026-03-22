@@ -421,8 +421,9 @@ function ElementInner({
 						: undefined
 				}
 			>
-				<button
-					type="button"
+				<div
+					role="button"
+					tabIndex={0}
 					className="absolute inset-0 size-full cursor-pointer flex flex-col"
 					onClick={(event) => {
 						closeClipEffects();
@@ -437,7 +438,7 @@ function ElementInner({
 							isSelected={isSelected}
 						/>
 					</div>
-				</button>
+				</div>
 			</div>
 
 			{element.type !== "audio" && element.type !== "effect" && (
