@@ -1,0 +1,2 @@
+export const MAX_VIDEO_DURATION_SECONDS = 60;
+export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB

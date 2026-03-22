@@ -4,6 +4,8 @@ import { storageService } from "@/services/storage/service";
 import { generateUUID } from "@/utils/id";
 import { videoCache } from "@/services/video-cache/service";
 import { hasMediaId } from "@/lib/timeline/element-utils";
+import { MAX_FILE_SIZE_BYTES, MAX_VIDEO_DURATION_SECONDS } from "@/constants/reel-constants";
+import { toast } from "sonner";
 
 export class MediaManager {
 	private assets: MediaAsset[] = [];
@@ -19,6 +21,19 @@ export class MediaManager {
 		projectId: string;
 		asset: Omit<MediaAsset, "id">;
 	}): Promise<void> {
+		if (asset.file.size > MAX_FILE_SIZE_BYTES) {
+			toast.error(`File too large`, {
+				description: `File size must be less than ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB.`,
+			});
+			return;
+		}
+
+		if (asset.type === "video" && asset.duration && asset.duration > MAX_VIDEO_DURATION_SECONDS) {
+			toast.error(`Video too long`, {
+				description: `Video duration must be less than ${MAX_VIDEO_DURATION_SECONDS} seconds.`,
+			});
+			return;
+		}
 		const newAsset: MediaAsset = {
 			...asset,
 			id: generateUUID(),
