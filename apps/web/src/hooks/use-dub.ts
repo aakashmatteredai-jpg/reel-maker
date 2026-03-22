@@ -10,6 +10,8 @@ import {
 } from "@/lib/dub-storage";
 import { mergeTranscriptWithSpeakers } from "@/lib/merge-transcript";
 import { buildElementFromMedia } from "@/lib/timeline/element-utils";
+import { buildEmptyTrack } from "@/lib/timeline/track-utils";
+import { generateUUID } from "@/utils/id";
 import { useEditor } from "./use-editor";
 import { toast } from "sonner";
 import type { DubState, SpeakerData, SpeakerSegment } from "@/core/managers/dub-manager";
@@ -326,9 +328,17 @@ export function useDub(assetId?: string) {
 				
 				if (res.ok) {
 					const audioBlob = await res.blob();
+					if (audioBlob.size < 100) {
+						console.warn("TTS returned suspiciously small blob:", i, audioBlob.size);
+						throw new Error("Invalid audio data from TTS");
+					}
 					const key = `dubbed-${assetId || "temp"}-${i}-${speaker.id}`;
 					await saveAudioBlob(key, audioBlob);
 					dubbedTranscript[i] = { ...seg, dubbedAudioKey: key };
+				} else {
+					const errText = await res.text();
+					console.error("TTS API error:", res.status, errText);
+					throw new Error(`TTS API failed: ${res.status}`);
 				}
 			} catch (e) {
 				console.error("TTS failed for segment:", i, e);
@@ -360,71 +370,81 @@ export function useDub(assetId?: string) {
 
 		setState({ stage: "merging", progress: 0 });
 
-		// 1. Create Dubbing Track
-		const trackId = editor.timeline.addTrack({ type: "audio" });
-		editor.timeline.updateTracks(editor.timeline.getTracks().map(t => 
-			t.id === trackId ? { ...t, name: "AI Dubbed Voice" } : t
-		));
-		
-		let count = 0;
+		// 1. Prepare segments and assets
+		const assetsToUpload: any[] = [];
+		const segmentsWithAudioIndices: number[] = [];
+
 		for (let i = 0; i < currentState.targetTranscript.length; i++) {
 			const seg = currentState.targetTranscript[i];
 			if (!seg.dubbedAudioKey) continue;
 
 			try {
 				const blob = await getAudioBlob(seg.dubbedAudioKey);
-				if (!blob) continue;
+				if (!blob || blob.size < 100) continue;
 
-				// Create File from Blob
 				const extension = blob.type.includes("wav") ? "wav" : "mp3";
 				const file = new File([blob], `dub-${i}.${extension}`, { type: blob.type });
 				
-				// Add to Media Manager
-				const mediaId = await editor.media.addMediaAsset({
-					projectId: activeProject.metadata.id,
-					asset: {
-						name: `Dub Speaker ${seg.speaker} - ${i}`,
-						type: "audio",
-						file: file,
-						url: URL.createObjectURL(file),
-					}
+				assetsToUpload.push({
+					name: `Dub Speaker ${seg.speaker} - ${i}`,
+					type: "audio",
+					file: file,
+					url: URL.createObjectURL(file),
+					duration: seg.end - seg.start,
 				});
-
-				if (mediaId) {
-					// Insert into timeline
-					const duration = seg.end - seg.start;
-					const element = buildElementFromMedia({
-						mediaId,
-						mediaType: "audio",
-						name: `Dub Speaker ${seg.speaker} - ${i}`,
-						duration,
-						startTime: seg.start,
-					});
-
-					editor.timeline.insertElement({
-						element,
-						placement: {
-							mode: "explicit",
-							trackId,
-						}
-					});
-					count++;
-				}
+				segmentsWithAudioIndices.push(i);
 			} catch (err) {
-				console.error("Failed to apply segment:", i, err);
+				console.error("Failed to prepare segment:", i, err);
 			}
-			setState({ progress: Math.round((i / currentState.targetTranscript.length) * 100) });
 		}
 
-		// 2. Mute original video track if desired
-		const videoTrack = editor.timeline.getTracks().find(t => t.type === "video");
+		if (assetsToUpload.length === 0) {
+			setState({ stage: "done", progress: 100 });
+			toast.info("No dubbed audio to apply.");
+			return;
+		}
+
+		// 2. Batch Add to Media Manager
+		const mediaIds = await editor.media.addMediaAssets({
+			projectId: activeProject.metadata.id,
+			assets: assetsToUpload
+		});
+
+		// 3. Batch Add to Timeline
+		const tracksBefore = editor.timeline.getTracks();
+		const dubTrackId = generateUUID();
+		const dubTrack = buildEmptyTrack({ id: dubTrackId, type: "audio" });
+		dubTrack.name = "AI Dubbed Voice";
+
+		const elements = segmentsWithAudioIndices.map((origIdx, batchIdx) => {
+			const seg = currentState.targetTranscript![origIdx];
+			const mediaId = mediaIds[batchIdx];
+			const duration = seg.end - seg.start;
+			
+			return buildElementFromMedia({
+				mediaId,
+				mediaType: "audio",
+				name: `Dub Speaker ${seg.speaker} - ${origIdx}`,
+				duration,
+				startTime: seg.start,
+			});
+		});
+
+		(dubTrack as any).elements = elements;
+
+		const tracksAfter = [...tracksBefore, dubTrack];
+		editor.timeline.updateTracks(tracksAfter);
+		editor.timeline.pushTracksSnapshot({ before: tracksBefore, after: tracksAfter });
+
+		// 4. Mute original video track if desired
+		const videoTrack = tracksAfter.find(t => t.type === "video");
 		if (videoTrack) {
 			editor.timeline.toggleTrackMute({ trackId: videoTrack.id });
 			toast.info("Original video audio muted to favor dubbed voice.");
 		}
 
 		setState({ stage: "done", progress: 100 });
-		toast.success(`Successfully added ${count} AI voice segments!`);
+		toast.success(`Successfully applied ${assetsToUpload.length} AI voice segments!`);
 	}, [editor, setState]);
 
 	const mergeAndDownload = useCallback(async () => {

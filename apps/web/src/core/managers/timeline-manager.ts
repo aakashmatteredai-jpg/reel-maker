@@ -610,4 +610,15 @@ export class TimelineManager {
 		this.editor.scenes.updateSceneTracks({ tracks: newTracks });
 		this.notify();
 	}
+
+	pushTracksSnapshot({
+		before,
+		after,
+	}: {
+		before: TimelineTrack[];
+		after: TimelineTrack[];
+	}): void {
+		const command = new TracksSnapshotCommand(before, after);
+		this.editor.command.push({ command });
+	}
 }

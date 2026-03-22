@@ -53,6 +53,32 @@ export class MediaManager {
 		}
 	}
 
+	async addMediaAssets({
+		projectId,
+		assets,
+	}: {
+		projectId: string;
+		assets: Omit<MediaAsset, "id">[];
+	}): Promise<string[]> {
+		const newAssets: MediaAsset[] = assets.map(asset => ({
+			...asset,
+			id: generateUUID(),
+		}));
+
+		this.assets = [...this.assets, ...newAssets];
+		this.notify();
+
+		try {
+			await Promise.all(
+				newAssets.map(asset => storageService.saveMediaAsset({ projectId, mediaAsset: asset }))
+			);
+			return newAssets.map(a => a.id);
+		} catch (error) {
+			console.error("Failed to save some media assets:", error);
+			return newAssets.map(a => a.id);
+		}
+	}
+
 	async removeMediaAsset({
 		projectId,
 		id,

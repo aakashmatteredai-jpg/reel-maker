@@ -1,8 +1,9 @@
 import { useEditor } from "@/hooks/use-editor";
 import { useDubbingStore } from "@/stores/dubbing-store";
 import { generateSpeech } from "@/lib/ai/voiceover";
-import { generateUUID } from "@/utils/id";
 import { buildElementFromMedia } from "@/lib/timeline/element-utils";
+import { buildEmptyTrack } from "@/lib/timeline/track-utils";
+import { generateUUID } from "@/utils/id";
 import { toast } from "sonner";
 
 export function useDubbing() {
@@ -19,14 +20,7 @@ export function useDubbing() {
         }
 
         try {
-            // 1. Create a "Dubbing" track if it doesn't exist
-            let dubbingTrack = editor.timeline.getTracks().find(t => t.name === "Dubbing" && t.type === "audio");
-            let trackId = dubbingTrack?.id;
-            
-            if (!trackId) {
-                trackId = editor.timeline.addTrack({ type: "audio" });
-                // We could rename it here if needed, but for now we'll just use it
-            }
+            const results: { segmentIdx: number; file: File; duration: number }[] = [];
 
             for (let i = 0; i < segments.length; i++) {
                 const segment = segments[i];
@@ -39,53 +33,65 @@ export function useDubbing() {
                 toast.loading(`Generating audio for segment ${i + 1}/${segments.length}...`, { id: "dubbing-progress" });
 
                 try {
-                    // 2. Generate TTS
                     const audioBlob = await generateSpeech(
                         character.ttsProvider,
                         segment.text,
                         character.ttsVoiceId
                     );
 
-                    // 3. Add to Media Manager (Let it generate the ID)
                     const file = new File([audioBlob], `dub_${segment.speakerId}_${i}.wav`, { type: "audio/wav" });
-                    const url = URL.createObjectURL(file);
-
-                    const mediaId = await editor.media.addMediaAsset({
-                        projectId,
-                        asset: {
-                            file,
-                            url,
-                            type: "audio",
-                            name: `Dub ${character.name} ${i}`,
-                            duration: segment.end - segment.start,
-                        }
+                    results.push({
+                        segmentIdx: i,
+                        file,
+                        duration: segment.end - segment.start
                     });
-
-                    if (mediaId) {
-                        // 4. Insert into Timeline
-                        const duration = segment.end - segment.start;
-                        const element = buildElementFromMedia({
-                            mediaId,
-                            mediaType: "audio",
-                            name: `Dub ${character.name}`,
-                            duration,
-                            startTime: segment.start,
-                        });
-
-                        editor.timeline.insertElement({
-                            element,
-                            placement: {
-                                mode: "explicit",
-                                trackId: trackId as string,
-                            }
-                        });
-                        updateSegment(i, { isDubbed: true });
-                    }
                 } catch (err) {
                     console.error(`Failed to dub segment ${i}:`, err);
-                    toast.error(`Segment ${i + 1} failed.`, { id: "dubbing-progress" });
                 }
             }
+
+            if (results.length === 0) {
+                toast.error("No audio generated.", { id: "dubbing-progress" });
+                setIsDubbing(false);
+                return;
+            }
+
+            // 3. Batch Add to Media Manager
+            const mediaIds = await editor.media.addMediaAssets({
+                projectId,
+                assets: results.map(r => ({
+                    file: r.file,
+                    url: URL.createObjectURL(r.file),
+                    type: "audio",
+                    name: `Dub Segment ${r.segmentIdx}`,
+                    duration: r.duration
+                }))
+            });
+
+            // 4. Batch Add to Timeline
+            const tracksBefore = editor.timeline.getTracks();
+            const dubbingTrackId = generateUUID();
+            const dubbingTrack = buildEmptyTrack({ id: dubbingTrackId, type: "audio" });
+            dubbingTrack.name = "Dubbing Layer";
+
+            const elements = results.map((r, batchIdx) => {
+                const character = characters.find(c => c.id === segments[r.segmentIdx].speakerId);
+                return buildElementFromMedia({
+                    mediaId: mediaIds[batchIdx],
+                    mediaType: "audio",
+                    name: `Dub ${character?.name || "Speaker"}`,
+                    duration: r.duration,
+                    startTime: segments[r.segmentIdx].start,
+                });
+            });
+
+            (dubbingTrack as any).elements = elements;
+
+            const tracksAfter = [...tracksBefore, dubbingTrack];
+            editor.timeline.updateTracks(tracksAfter);
+            editor.timeline.pushTracksSnapshot({ before: tracksBefore, after: tracksAfter });
+
+            results.forEach(r => updateSegment(r.segmentIdx, { isDubbed: true }));
 
             toast.success("Dubbing complete!", { id: "dubbing-progress" });
         } catch (error) {
