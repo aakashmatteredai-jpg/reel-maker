@@ -57,3 +57,25 @@ export async function transcribeAudioSarvam(file: File | Blob, duration: number)
 		throw error;
 	}
 }
+
+export async function diarizeAudio(file: File | Blob): Promise<TranscriptionResult> {
+    try {
+        const formData = new FormData();
+        formData.append("file", file, "audio.wav");
+
+        const res = await fetch("/api/diarize", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `Diarization API Failed: ${res.statusText}`);
+        }
+        
+        return await res.json();
+    } catch (error) {
+        console.error("Failed to diarize audio:", error);
+        throw error;
+    }
+}
