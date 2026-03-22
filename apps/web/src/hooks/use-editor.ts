@@ -21,6 +21,7 @@ export function useEditor(): EditorCore {
 				editor.renderer.subscribe(handleStoreChange),
 				editor.selection.subscribe(handleStoreChange),
 				editor.autoReel.subscribe(handleStoreChange),
+				editor.dub.subscribe(handleStoreChange),
 			];
 
 			return () => {

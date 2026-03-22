@@ -1,4 +1,4 @@
-import type { SpeakerSegment } from "../hooks/use-dub";
+import type { SpeakerSegment } from "../core/managers/dub-manager";
 
 /**
  * Merges Sarvam transcript segments with Pyannote diarization segments.
@@ -19,9 +19,18 @@ export function mergeTranscriptWithSpeakers(
 				const overlapEnd = Math.min(diar.end, sarvam.end);
 				const overlapDuration = overlapEnd - overlapStart;
 				
-				// Overlap if duration is positive and either > 0.5s or > 50% of the sarvam segment
+				if (overlapDuration <= 0) return false;
+
 				const sarvamDuration = sarvam.end - sarvam.start;
-				return overlapDuration > 0 && (overlapDuration > 0.5 || overlapDuration > sarvamDuration * 0.5);
+				
+				// Standard: Significant overlap (>0.5s or >50%)
+				if (overlapDuration > 0.5 || overlapDuration > sarvamDuration * 0.5) return true;
+
+				// Fallback: If Sarvam segment is a large block (common in sync API for long chunks),
+				// and our tiny diarization segment falls completely inside it, we take it.
+				if (sarvamDuration > 5 && diar.start >= sarvam.start - 0.5 && diar.end <= sarvam.end + 0.5) return true;
+
+				return false;
 			})
 			.map((s) => s.text)
 			.join(" ")
@@ -31,7 +40,7 @@ export function mergeTranscriptWithSpeakers(
 			speaker: diar.speaker,
 			start: diar.start,
 			end: diar.end,
-			text: overlappingText,
+			text: overlappingText || undefined,
 		});
 	}
 

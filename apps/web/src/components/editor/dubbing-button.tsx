@@ -10,6 +10,9 @@ import { DubPanel } from "@/components/dub/dub-panel";
 import { 
 	Sheet, 
 	SheetContent, 
+	SheetHeader,
+	SheetTitle,
+	SheetDescription
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +85,12 @@ export function DubbingButton() {
 
 			<Sheet open={isOpen} onOpenChange={setIsOpen}>
 				<SheetContent className="p-0 sm:max-w-[400px] flex flex-col h-full overflow-hidden">
+					<div className="sr-only">
+						<SheetHeader>
+							<SheetTitle>Dubbing & Voice Over</SheetTitle>
+							<SheetDescription>Configure AI dubbing or add manual voice over to your video.</SheetDescription>
+						</SheetHeader>
+					</div>
 					{showChoice && state.stage === "idle" ? (
 						<div className="flex-1 flex flex-col items-center justify-center p-8 gap-8 animate-in fade-in zoom-in duration-300">
 							<div className="text-center space-y-2">

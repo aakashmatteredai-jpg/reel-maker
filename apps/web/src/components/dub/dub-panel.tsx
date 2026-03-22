@@ -29,8 +29,6 @@ export function DubPanel() {
 
 	const currentStageIdx = STAGES.findIndex(s => s.id === state.stage);
 
-	if (state.stage === "idle") return null;
-
 	return (
 		<div className="flex flex-col h-full bg-background border-l w-[400px] shadow-2xl animate-in slide-in-from-right duration-300">
 			<div className="p-6 border-b flex items-center justify-between bg-muted/10">
