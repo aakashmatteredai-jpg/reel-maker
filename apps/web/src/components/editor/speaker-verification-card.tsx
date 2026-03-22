@@ -19,7 +19,19 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useEditor } from "@/hooks/use-editor";
 import { useDubbingStore } from "@/stores/dubbing-store";
-import type { DubbingSpeaker } from "@/types/transcription";
+import type { DubbingSpeaker, DubbingSegment } from "@/types/transcription";
+import { SpeakerTimeline } from "./speaker-timeline";
+import { 
+	Play, 
+	Pause, 
+	CheckCircle2, 
+	MessageSquare, 
+	Volume2, 
+	Languages, 
+	Settings2,
+	Eye,
+	Edit3
+} from "lucide-react";
 import { cn } from "@/utils/ui";
 import { toast } from "sonner";
 
@@ -36,7 +48,9 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 		playingSpeakerId, 
 		setPlayingSpeakerId,
 		timelineMode,
-		setTimelineMode
+		setTimelineMode,
+		isEditMode,
+		setIsEditMode
 	} = useDubbingStore();
 
 	const [currentAudioTime, setCurrentAudioTime] = useState(0);
@@ -124,7 +138,7 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 
 	const getActiveSegmentIdx = (): number => {
 		if (timelineMode && editor.playback.getIsPlaying()) {
-			return speaker.segments.findIndex(s => currentTime >= s.start && currentTime <= s.end);
+			return speaker.segments.findIndex((s: DubbingSegment) => currentTime >= s.start && currentTime <= s.end);
 		}
 		// For isolated audio, map by cumulative duration
 		let cumulative = 0;
@@ -142,7 +156,7 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 
 	const handleVerifySync = () => {
 		const issues: number[] = [];
-		speaker.segments.forEach((seg, idx) => {
+		speaker.segments.forEach((seg: DubbingSegment, idx: number) => {
 			const duration = seg.end - seg.start;
 			const wordCount = seg.text.split(/\s+/).length;
 			const wpm = (wordCount / duration) * 60;
@@ -212,150 +226,168 @@ export function SpeakerVerificationCard({ speaker }: SpeakerVerificationCardProp
 					</div>
 				</div>
 
+				{/* Mode Toggle & Status */}
 				<div className="flex items-center gap-2">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8 text-muted-foreground hover:text-primary transition-colors"
-						onClick={handleVerifySync}
-						title="Verify Sync"
+					<button
+						onClick={() => setIsEditMode(!isEditMode)}
+						className={cn(
+							"flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
+							isEditMode 
+								? "bg-amber-500/10 border-amber-500/50 text-amber-500" 
+								: "bg-secondary border-transparent text-muted-foreground hover:bg-secondary/80"
+						)}
 					>
-						<HugeiconsIcon icon={Search01Icon} className="size-4" />
-					</Button>
-					{speaker.confirmed && (
-						<Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] gap-1 px-2 py-0.5 animate-in fade-in scale-in">
-							<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-3" />
-							Confirmed
-						</Badge>
+						{isEditMode ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+						{isEditMode ? "Edit Mode" : "View Mode"}
+					</button>
+
+					{speaker.confirmed ? (
+						<div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/50 text-emerald-500 text-xs font-semibold">
+							<CheckCircle2 className="w-3.5 h-3.5" />
+							Verified
+						</div>
+					) : (
+						<div className="px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/50 text-amber-500 text-xs font-semibold">
+							Pending Review
+						</div>
 					)}
 				</div>
 			</div>
 
-			{/* Audio Controls & Waveform */}
-			<div className="bg-muted/30 rounded-lg p-3 space-y-3">
-				<div className="flex items-center gap-3">
-					<Button
-						variant={isPlaying ? "default" : "outline"}
-						size="sm"
-						className="h-8 w-full text-xs gap-1.5 shadow-sm transition-all"
-						disabled={!speaker.audioUrl && !timelineMode}
-						onClick={handlePlaySpeakerAudio}
-					>
-						<HugeiconsIcon icon={isPlaying ? PauseIcon : PlayIcon} className="size-3.5" />
-						{isPlaying 
-							? (timelineMode ? "Pause Video" : "Pause Audio") 
-							: (timelineMode ? "Play in Timeline" : "Play Speaker Audio")}
-					</Button>
-					
-					<div className="flex-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground justify-end shrink-0">
-						<span>{(timelineMode ? currentTime : currentAudioTime).toFixed(1)}s</span>
-						<span className="opacity-30">/</span>
-						<span>{(timelineMode ? editor.timeline.getTotalDuration() : speaker.totalDuration).toFixed(1)}s</span>
-					</div>
-				</div>
-				
-				{!timelineMode && <div ref={waveformRef} className="w-full h-10 rounded overflow-hidden" />}
-			</div>
+			<div className="space-y-6">
+                <SpeakerTimeline 
+                    speakerId={speaker.id}
+                    segments={speaker.segments}
+                    color={speaker.color}
+                    totalDuration={editor.timeline.getTotalDuration() || speaker.segments[speaker.segments.length-1]?.end || 0}
+                />
 
-			{/* Transcript Segments */}
-			<div 
-				ref={scrollContainerRef}
-				className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted-foreground/20"
-			>
-				{speaker.segments.map((seg, idx) => (
-					<div
-						key={idx}
-						className={cn(
-							"flex items-start gap-3 p-2.5 rounded-xl transition-all text-sm border group/seg",
-							activeIdx === idx
-								? "bg-primary/10 border-primary/30 shadow-sm scale-[1.01]"
-								: "bg-muted/10 border-transparent hover:bg-muted/40",
-							syncIssues.includes(idx) && !speaker.confirmed && "border-amber-500/30 bg-amber-500/5"
-						)}
-					>
-						<div className="flex flex-col items-center gap-1 shrink-0 w-12 pt-0.5">
-							<span className="text-[9px] font-mono text-muted-foreground tabular-nums">
-								{seg.start.toFixed(1)}s
-							</span>
-							{syncIssues.includes(idx) && (
-								<HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-amber-500" />
+				{/* Audio Preview & Controls */}
+				<div className="bg-muted/30 rounded-lg p-3 space-y-3">
+					<div className="flex items-center gap-3">
+						<Button
+							variant={isPlaying ? "default" : "outline"}
+							size="sm"
+							className="h-8 w-full text-xs gap-1.5 shadow-sm transition-all"
+							disabled={!speaker.audioUrl && !timelineMode}
+							onClick={handlePlaySpeakerAudio}
+						>
+							<HugeiconsIcon icon={isPlaying ? PauseIcon : PlayIcon} className="size-3.5" />
+							{isPlaying 
+								? (timelineMode ? "Pause Video" : "Pause Audio") 
+								: (timelineMode ? "Play in Timeline" : "Play Speaker Audio")}
+						</Button>
+						
+						<div className="flex-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground justify-end shrink-0">
+							<span>{(timelineMode ? currentTime : currentAudioTime).toFixed(1)}s</span>
+							<span className="opacity-30">/</span>
+							<span>{(timelineMode ? editor.timeline.getTotalDuration() : speaker.totalDuration).toFixed(1)}s</span>
+						</div>
+					</div>
+					
+					{!timelineMode && <div ref={waveformRef} className="w-full h-10 rounded overflow-hidden" />}
+				</div>
+
+				{/* Transcript Segments */}
+				<div 
+					ref={scrollContainerRef}
+					className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted-foreground/20"
+				>
+					{speaker.segments.map((seg: DubbingSegment, idx: number) => (
+						<div
+							key={idx}
+							className={cn(
+								"flex items-start gap-3 p-2.5 rounded-xl transition-all text-sm border group/seg",
+								activeIdx === idx
+									? "bg-primary/10 border-primary/30 shadow-sm scale-[1.01]"
+									: "bg-muted/10 border-transparent hover:bg-muted/40",
+								syncIssues.includes(idx) && !speaker.confirmed && "border-amber-500/30 bg-amber-500/5"
+							)}
+						>
+							<div className="flex flex-col items-center gap-1 shrink-0 w-12 pt-0.5">
+								<span className="text-[9px] font-mono text-muted-foreground tabular-nums">
+									{seg.start.toFixed(1)}s
+								</span>
+								{syncIssues.includes(idx) && (
+									<HugeiconsIcon icon={AlertCircleIcon} className="size-3 text-amber-500" />
+								)}
+							</div>
+
+							{editingSegIdx === idx ? (
+								<div className="flex-1 space-y-2">
+									<Textarea
+										value={editText}
+										onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditText(e.target.value)}
+										className="min-h-[80px] text-xs resize-none bg-background shadow-inner"
+										autoFocus
+									/>
+									<div className="flex gap-1.5">
+										<Button size="sm" className="h-7 text-[10px] gap-1 px-3" onClick={handleSaveEdit}>
+											<HugeiconsIcon icon={Tick01Icon} className="size-3" />
+											Save
+										</Button>
+										<Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1 px-3" onClick={handleCancelEdit}>
+											<HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+											Cancel
+										</Button>
+									</div>
+								</div>
+							) : (
+								<>
+									<div className="flex-1">
+										<p className={cn(
+											"text-[13px] leading-relaxed transition-colors",
+											activeIdx === idx ? "text-primary font-semibold" : "text-foreground/80 font-normal"
+										)}>
+											{seg.text}
+										</p>
+									</div>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="size-7 shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
+										onClick={() => handleStartEdit(idx)}
+									>
+										<HugeiconsIcon icon={Edit01Icon} className="size-3.5" />
+									</Button>
+								</>
 							)}
 						</div>
+					))}
+				</div>
 
-						{editingSegIdx === idx ? (
-							<div className="flex-1 space-y-2">
-								<Textarea
-									value={editText}
-									onChange={(e) => setEditText(e.target.value)}
-									className="min-h-[80px] text-xs resize-none bg-background shadow-inner"
-									autoFocus
-								/>
-								<div className="flex gap-1.5">
-									<Button size="sm" className="h-7 text-[10px] gap-1 px-3" onClick={handleSaveEdit}>
-										<HugeiconsIcon icon={Tick01Icon} className="size-3" />
-										Save
-									</Button>
-									<Button size="sm" variant="ghost" className="h-7 text-[10px] gap-1 px-3" onClick={handleCancelEdit}>
-										<HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-										Cancel
-									</Button>
-								</div>
-							</div>
-						) : (
-							<>
-								<div className="flex-1">
-									<p className={cn(
-										"text-[13px] leading-relaxed transition-colors",
-										activeIdx === idx ? "text-primary font-semibold" : "text-foreground/80 font-normal"
-									)}>
-										{seg.text}
-									</p>
-								</div>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-7 shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-primary/10 hover:text-primary transition-all rounded-full"
-									onClick={() => handleStartEdit(idx)}
-								>
-									<HugeiconsIcon icon={Edit01Icon} className="size-3.5" />
-								</Button>
-							</>
-						)}
-					</div>
-				))}
-			</div>
-
-			{/* Confirm / Unconfirm */}
-			<div className="flex items-center justify-between pt-3 border-t border-border/50">
-				{speaker.confirmed ? (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="h-8 text-[11px] text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-						onClick={() => unconfirmSpeaker(speaker.id)}
-					>
-						Undo Confirmation
-					</Button>
-				) : (
-					<Button
-						size="sm"
-						className="h-9 px-4 text-xs gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:shadow-md transition-all active:scale-95"
-						onClick={() => confirmSpeaker(speaker.id)}
-					>
-						<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-4" />
-						Confirm Speaker
-					</Button>
-				)}
-
-				<div className="flex flex-col items-end gap-1">
-					{speaker.ttsVoiceId && (
-						<Badge variant="secondary" className="text-[9px] h-4 px-2 font-mono opacity-80">
-							{speaker.ttsProvider}/{speaker.ttsVoiceId}
-						</Badge>
+				{/* Footer */}
+				<div className="flex items-center justify-between pt-3 border-t border-border/50">
+					{speaker.confirmed ? (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-8 text-[11px] text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+							onClick={() => unconfirmSpeaker(speaker.id)}
+						>
+							Undo Confirmation
+						</Button>
+					) : (
+						<Button
+							size="sm"
+							className="h-9 px-4 text-xs gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:shadow-md transition-all active:scale-95"
+							onClick={() => confirmSpeaker(speaker.id)}
+						>
+							<HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-4" />
+							Confirm Speaker
+						</Button>
 					)}
-					<span className="text-[10px] text-muted-foreground/60 italic">
-						Verified: {speaker.confirmed ? "Yes" : "No"}
-					</span>
+
+					<div className="flex flex-col items-end gap-1">
+						{speaker.ttsVoiceId && (
+							<Badge variant="secondary" className="text-[9px] h-4 px-2 font-mono opacity-80">
+								{speaker.ttsProvider}/{speaker.ttsVoiceId}
+							</Badge>
+						)}
+						<span className="text-[10px] text-muted-foreground/60 italic">
+							Verified: {speaker.confirmed ? "Yes" : "No"}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -61,6 +61,8 @@ export interface Character {
 export interface DubbingSegment extends TranscriptionSegment {
 	dubbedAudioId?: string;
 	isDubbed?: boolean;
+	originalStart?: number; // Store original for reset
+	originalEnd?: number;
 }
 
 export interface DubbingSpeaker {

@@ -91,6 +91,8 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 		allSpeakersConfirmed,
 		confirmSpeaker,
 	} = useDubbingStore();
+	const [isRendering, setIsRendering] = useState(false);
+	const [renderProgress, setRenderProgress] = useState("");
 	const editor = useEditor();
 	const currentTime = editor.playback.getCurrentTime();
 	const activeSegment = segments.find(s => currentTime >= s.start && currentTime <= s.end);
@@ -149,6 +151,35 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 	const handleDubAll = async () => {
 		await dubAll();
 		onOpenChange(false);
+	};
+
+	const handleRenderFinal = async () => {
+		if (!allSpeakersConfirmed()) {
+			toast.warning("Please verify all speakers first.");
+			return;
+		}
+
+		setIsRendering(true);
+		setStep("dubbing"); // Show loading step for rendering too
+		
+		try {
+			const { renderDubbedTrack } = await import("@/lib/dubbing/dubbing-renderer");
+			const dubbedAudioUrl = await renderDubbedTrack(speakers, (prog) => {
+				setRenderProgress(prog);
+				toast.loading(prog, { id: "render-dub" });
+			});
+
+			toast.success("Dubbing rendered successfully!", { id: "render-dub" });
+			
+			// Open the resulting audio in a new tab or trigger download
+			window.open(dubbedAudioUrl, "_blank");
+		} catch (err) {
+			console.error("Rendering failed:", err);
+			toast.error("Dubbing failed. Check console for details.", { id: "render-dub" });
+			setStep("configuration");
+		} finally {
+			setIsRendering(false);
+		}
 	};
 
 	return (
@@ -250,9 +281,13 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 									<HugeiconsIcon icon={Mic01Icon} className="size-8 text-primary animate-pulse" />
 								</div>
 							</div>
-							<h3 className="text-xl font-medium">Analyzing Video...</h3>
+							<h3 className="text-xl font-medium">
+								{isRendering ? "Rendering Final Video..." : "Analyzing Video..."}
+							</h3>
 							<p className="text-muted-foreground text-center max-w-sm">
-								We're detecting speakers, transcribing dialogue, and identifying voices. This may take a minute.
+								{isRendering 
+									? renderProgress || "Generating translated audio and merging tracks. This may take a while."
+									: "We're detecting speakers, transcribing dialogue, and identifying voices. This may take a minute."}
 							</p>
 						</div>
 					)}
@@ -469,6 +504,17 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 											<Button variant="outline" size="sm" onClick={() => setStep("choice")}>Back</Button>
 											<Button 
 												size="sm" 
+                                                variant="outline"
+												onClick={handleRenderFinal}
+												disabled={isDubbing || isRendering || !allSpeakersConfirmed()}
+                                                className="gap-2"
+											>
+												<HugeiconsIcon icon={Download01Icon} className="size-4" />
+												Render Final Video
+											</Button>
+
+											<Button 
+												size="sm" 
 												onClick={() => {
 													if (!allSpeakersConfirmed()) {
 														toast.warning("Please confirm all speakers before dubbing.");
@@ -476,7 +522,7 @@ export function DubbingModal({ isOpen, onOpenChange }: DubbingModalProps) {
 													}
 													handleDubAll();
 												}}
-												disabled={isDubbing || !allSpeakersConfirmed()}
+												disabled={isDubbing || isRendering || !allSpeakersConfirmed()}
 											>
 												{isDubbing ? (
 													<>

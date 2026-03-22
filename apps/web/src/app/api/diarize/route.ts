@@ -1,35 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-	try {
-        const formData = await req.formData();
-        const file = formData.get("file") as File | null;
+  try {
+    const formData = await req.formData();
+    const audioFile = formData.get("audio") as File;
 
-        const apiKey = formData.get("apiKey") as string | null;
+    if (!audioFile) {
+      return NextResponse.json({ error: "No audio file" }, { status: 400 });
+    }
 
-        if (!file) {
-            return NextResponse.json({ error: "No file provided" }, { status: 400 });
-        }
+    const pyannoteForm = new FormData();
+    pyannoteForm.append("file", audioFile, "audio.wav");
 
-        // TODO: Integrate with a real Diarization provider (e.g., Sarvam, AssemblyAI, or Deepgram)
-        // For now, we'll return a mock diarization response for testing the UI
-        
-        const mockSegments = [
-            { start: 0, end: 5, text: "Hello, this is the first speaker.", speakerId: "speaker_0", gender: "male" },
-            { start: 5, end: 10, text: "And I am the second speaker answering.", speakerId: "speaker_1", gender: "female" },
-            { start: 10, end: 15, text: "I'm back again, the first one.", speakerId: "speaker_0", gender: "male" }
-        ];
+    const response = await fetch("http://localhost:8000/diarize", {
+      method: "POST",
+      body: pyannoteForm,
+    });
 
-        return NextResponse.json({
-            text: mockSegments.map(s => s.text).join(" "),
-            segments: mockSegments,
-            language: "en"
-        });
-	} catch (error) {
-		console.error("Diarization API error:", error);
-		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Internal server error" },
-			{ status: 500 }
-		);
-	}
+    if (!response.ok) {
+      throw new Error(`Pyannote server error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Diarization error:", error);
+    return NextResponse.json(
+      { error: "Diarization failed", details: String(error) },
+      { status: 500 }
+    );
+  }
 }
