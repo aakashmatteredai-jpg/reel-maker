@@ -11,7 +11,7 @@ async function getExtractor() {
 	// 'facebook/wav2vec2-base-960h' or specialized speaker models
 	// For client-side, we want a lightweight one.
 	extractor = await pipeline("feature-extraction", "Xenova/wav2vec2-base-960h", {
-		quantized: true,
+		dtype: "q8",
 	});
 	return extractor;
 }
