@@ -2,30 +2,23 @@ import { getApiKey } from "./ai-config";
 import type { TranscriptionResult, TranscriptionSegment } from "@/types/transcription";
 
 export async function transcribeAudioSarvam(file: File | Blob, duration: number): Promise<TranscriptionResult> {
-	const apiKey = getApiKey("sarvam");
-	if (!apiKey) {
-		throw new Error("Sarvam API key is missing. Please configure it in AI Settings.");
-	}
-
 	const formData = new FormData();
-	formData.append("file", file, "audio.mp4"); // Assuming audio/video file
+	formData.append("file", file, "audio.mp4");
 
 	try {
-		const res = await fetch("https://api.sarvam.ai/speech-to-text", {
+        // We now hit our Next.js backend API built to hide the API credentials
+		const res = await fetch("/api/transcribe", {
 			method: "POST",
-			headers: {
-				"api-subscription-key": apiKey,
-			},
 			body: formData,
 		});
 
 		if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Sarvam STT Failed: ${errText}`);
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `Server API Failed: ${res.statusText}`);
         }
 		
         const data = await res.json();
-		console.log("Sarvam DBG:", data);
+		console.log("Transcription Response:", data);
 
         // Sarvam usually returns { transcript: string }
         const transcriptText = data.transcript || data.text || "";
@@ -45,7 +38,7 @@ export async function transcribeAudioSarvam(file: File | Blob, duration: number)
             segments: [segment],
         };
 	} catch (error) {
-		console.error("Failed to generate transcript with Sarvam:", error);
+		console.error("Failed to generate transcript via backend:", error);
 		throw error;
 	}
 }
