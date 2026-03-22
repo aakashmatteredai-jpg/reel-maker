@@ -40,7 +40,8 @@ export function isVisualElement(
 		element.type === "video" ||
 		element.type === "image" ||
 		element.type === "text" ||
-		element.type === "sticker"
+		element.type === "sticker" ||
+		element.type === "transcript"
 	);
 }
 
@@ -415,7 +416,7 @@ export function collectFontFamilies({
 	const families = new Set<string>();
 	for (const track of tracks) {
 		for (const element of track.elements) {
-			if (element.type === "text" && element.fontFamily) {
+			if ((element.type === "text" || element.type === "transcript") && element.fontFamily) {
 				families.add(element.fontFamily);
 			}
 		}

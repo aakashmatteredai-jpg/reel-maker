@@ -1,41 +1,56 @@
-import { getApiKey } from "./ai-config";
 import type { TranscriptionResult, TranscriptionSegment } from "@/types/transcription";
+import { chunkAudioFile } from "./audio-utils";
 
 export async function transcribeAudioSarvam(file: File | Blob, duration: number): Promise<TranscriptionResult> {
-	const formData = new FormData();
-	formData.append("file", file, "audio.mp4");
-
 	try {
-        // We now hit our Next.js backend API built to hide the API credentials
-		const res = await fetch("/api/transcribe", {
-			method: "POST",
-			body: formData,
-		});
+        // Sarvam Sync API max limit is 30s, so we chunk it into 29s segments.
+        const chunkDuration = 29;
+        console.log(`Chunking audio of duration ${duration}s...`);
+        const chunks = await chunkAudioFile(file, chunkDuration);
+        console.log(`Split into ${chunks.length} chunks.`);
 
-		if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || `Server API Failed: ${res.statusText}`);
+        const allSegments: TranscriptionSegment[] = [];
+        let totalText = "";
+
+        // Process sequentially so we don't hit rate limits or overload the server API
+        for (let i = 0; i < chunks.length; i++) {
+            const chunkBlob = chunks[i];
+            const formData = new FormData();
+            formData.append("file", chunkBlob, `chunk_${i}.wav`);
+
+            console.log(`Transcribing chunk ${i + 1}/${chunks.length}...`);
+            const res = await fetch("/api/transcribe", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server API Failed: ${res.statusText}`);
+            }
+            
+            const data = await res.json();
+            const chunkText = data.transcript || data.text || "";
+
+            if (chunkText.trim()) {
+                totalText += (totalText ? " " : "") + chunkText;
+                
+                const startOffset = i * chunkDuration;
+                // Last chunk might be shorter
+                const endOffset = Math.min((i + 1) * chunkDuration, duration);
+
+                allSegments.push({
+                    start: startOffset,
+                    end: endOffset,
+                    text: chunkText,
+                });
+            }
         }
-		
-        const data = await res.json();
-		console.log("Transcription Response:", data);
-
-        // Sarvam usually returns { transcript: string }
-        const transcriptText = data.transcript || data.text || "";
-
-        // Since many STT APIs don't return word-level timestamps by default,
-        // we'll just create a single segment spanning the whole video duration
-        // so that Hook Generator and Captions have something to display.
-        const segment: TranscriptionSegment = {
-            start: 0,
-            end: duration,
-            text: transcriptText,
-        };
 
         return {
-            text: transcriptText,
-            language: "en", // Assuming default or detect
-            segments: [segment],
+            text: totalText,
+            language: "en", 
+            segments: allSegments,
         };
 	} catch (error) {
 		console.error("Failed to generate transcript via backend:", error);

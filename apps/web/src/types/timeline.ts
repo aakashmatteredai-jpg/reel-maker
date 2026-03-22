@@ -19,7 +19,7 @@ export interface TScene {
 	updatedAt: Date;
 }
 
-export type TrackType = "video" | "text" | "audio" | "sticker" | "effect";
+export type TrackType = "video" | "text" | "audio" | "sticker" | "effect" | "transcript";
 
 interface BaseTrack {
 	id: string;
@@ -37,6 +37,12 @@ export interface VideoTrack extends BaseTrack {
 export interface TextTrack extends BaseTrack {
 	type: "text";
 	elements: TextElement[];
+	hidden: boolean;
+}
+
+export interface TranscriptTrack extends BaseTrack {
+	type: "transcript";
+	elements: TranscriptElement[];
 	hidden: boolean;
 }
 
@@ -63,7 +69,8 @@ export type TimelineTrack =
 	| TextTrack
 	| AudioTrack
 	| StickerTrack
-	| EffectTrack;
+	| EffectTrack
+	| TranscriptTrack;
 
 export type { Transform } from "./rendering";
 
@@ -148,6 +155,16 @@ export interface TextElement extends BaseTimelineElement {
 	effects?: Effect[];
 }
 
+export interface TranscriptElement extends BaseTimelineElement {
+	type: "transcript";
+	fontSize: number;
+	fontFamily: string;
+	color: string;
+	backgroundColor: string;
+	positionY: number; // Vertical position in %
+	hidden?: boolean;
+}
+
 export interface StickerElement extends BaseTimelineElement {
 	type: "sticker";
 	stickerId: string;
@@ -168,7 +185,7 @@ export type VisualElement =
 	| VideoElement
 	| ImageElement
 	| TextElement
-	| StickerElement;
+	| StickerElement; // Transcript is handled as an overlay for now, but could be added here if it becomes a full visual node
 
 export type ElementUpdatePatch =
 	| { transform: Transform }
@@ -181,7 +198,8 @@ export type TimelineElement =
 	| ImageElement
 	| TextElement
 	| StickerElement
-	| EffectElement;
+	| EffectElement
+	| TranscriptElement;
 
 export type ElementType = TimelineElement["type"];
 
@@ -195,13 +213,15 @@ export type CreateImageElement = Omit<ImageElement, "id">;
 export type CreateTextElement = Omit<TextElement, "id">;
 export type CreateStickerElement = Omit<StickerElement, "id">;
 export type CreateEffectElement = Omit<EffectElement, "id">;
+export type CreateTranscriptElement = Omit<TranscriptElement, "id">;
 export type CreateTimelineElement =
 	| CreateAudioElement
 	| CreateVideoElement
 	| CreateImageElement
 	| CreateTextElement
 	| CreateStickerElement
-	| CreateEffectElement;
+	| CreateEffectElement
+	| CreateTranscriptElement;
 
 export interface ElementDragState {
 	isDragging: boolean;

@@ -7,6 +7,7 @@ import { TextProperties } from "./text-properties";
 import { EffectProperties } from "./effect-properties";
 import { ClipEffectsProperties } from "./clip-effects-properties";
 import { EmptyView } from "./empty-view";
+import { TranscriptProperties } from "./transcript-properties";
 import { useEditor } from "@/hooks/use-editor";
 import { useElementSelection } from "@/hooks/timeline/element/use-element-selection";
 import { usePropertiesStore } from "@/stores/properties-store";
@@ -22,6 +23,9 @@ function ElementProperties({
 }) {
 	if (element.type === "text") {
 		return <TextProperties element={element} trackId={track.id} />;
+	}
+	if (element.type === "transcript") {
+		return <TranscriptProperties element={element} trackId={track.id} />;
 	}
 	if (element.type === "audio") {
 		return <AudioProperties />;

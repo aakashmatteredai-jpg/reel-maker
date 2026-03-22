@@ -7,6 +7,7 @@ import type {
 	StickerTrack,
 	TextTrack,
 	EffectTrack,
+	TranscriptTrack,
 	TimelineElement,
 } from "@/types/timeline";
 import {
@@ -23,7 +24,7 @@ export function canTracktHaveAudio(
 
 export function canTrackBeHidden(
 	track: TimelineTrack,
-): track is VideoTrack | TextTrack | StickerTrack | EffectTrack {
+): track is VideoTrack | TextTrack | StickerTrack | EffectTrack | TranscriptTrack {
 	return track.type !== "audio";
 }
 
@@ -121,6 +122,14 @@ export function buildEmptyTrack({
 				elements: [],
 				hidden: false,
 			};
+		case "transcript":
+			return {
+				id,
+				name: trackName,
+				type: "transcript",
+				elements: [],
+				hidden: false,
+			};
 		default:
 			throw new Error(`Unsupported track type: ${type}`);
 	}
@@ -215,6 +224,7 @@ export function canElementGoOnTrack({
 	trackType: TrackType;
 }): boolean {
 	if (elementType === "text") return trackType === "text";
+	if (elementType === "transcript") return trackType === "transcript";
 	if (elementType === "audio") return trackType === "audio";
 	if (elementType === "sticker") return trackType === "sticker";
 	if (elementType === "effect") return trackType === "effect";

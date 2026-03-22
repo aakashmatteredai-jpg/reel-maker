@@ -4,6 +4,7 @@ import { useTimelineStore } from "@/stores/timeline-store";
 import { useActionHandler } from "@/hooks/actions/use-action-handler";
 import { useEditor } from "../use-editor";
 import { useElementSelection } from "../timeline/element/use-element-selection";
+import { useCaptionStore } from "@/stores/caption-store";
 import { useKeyframeSelection } from "../timeline/element/use-keyframe-selection";
 import { getElementsAtTime } from "@/lib/timeline";
 import { toast } from "sonner";
@@ -365,6 +366,14 @@ export function useEditorActions() {
 						error instanceof Error ? error.message : "Please try again",
 				});
 			}
+		},
+		undefined,
+	);
+	useActionHandler(
+		"toggle-captions",
+		() => {
+			const { enabled, setEnabled } = useCaptionStore.getState();
+			setEnabled(!enabled);
 		},
 		undefined,
 	);

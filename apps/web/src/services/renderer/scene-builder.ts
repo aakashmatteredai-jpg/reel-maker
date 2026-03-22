@@ -8,6 +8,8 @@ import { StickerNode } from "./nodes/sticker-node";
 import { ColorNode } from "./nodes/color-node";
 import { CompositeEffectNode } from "./nodes/composite-effect-node";
 import { EffectLayerNode } from "./nodes/effect-layer-node";
+import { TranscriptNode } from "./nodes/transcript-node";
+import { EditorCore } from "@/core";
 import type { BaseNode } from "./nodes/base-node";
 import type { TBackground, TCanvasSize } from "@/types/project";
 import { DEFAULT_BLUR_INTENSITY } from "@/constants/project-constants";
@@ -131,6 +133,21 @@ function buildTrackNodes({
 						effects: element.effects,
 					}),
 				);
+			}
+
+			if (element.type === "transcript") {
+				const editor = EditorCore.getInstance();
+				const transcript = editor.transcription.getTranscript();
+				if (transcript) {
+					nodes.push(
+						new TranscriptNode({
+							...element,
+							transcript,
+							canvasCenter: { x: canvasSize.width / 2, y: canvasSize.height / 2 },
+							canvasHeight: canvasSize.height,
+						}),
+					);
+				}
 			}
 		}
 	}

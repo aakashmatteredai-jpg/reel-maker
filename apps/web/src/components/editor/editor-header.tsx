@@ -16,7 +16,9 @@ import { useRouter } from "next/navigation";
 import { FaDiscord } from "react-icons/fa6";
 import { ExportButton } from "./export-button";
 import { AutoReelButton } from "./auto-reel-button";
+import { TranscribeButton } from "./transcribe-button";
 import { SmartCutsButton } from "./smart-cuts-button";
+import { CaptionsButton } from "./captions-button";
 import { AISettingsDialog } from "./dialogs/ai-settings-dialog";
 import { ThemeToggle } from "../theme-toggle";
 import { DEFAULT_LOGO_URL, SOCIAL_LINKS } from "@/constants/site-constants";
@@ -49,6 +51,8 @@ export function EditorHeader() {
 
 			<nav className="flex items-center gap-2">
 				<AutoReelButton />
+				<TranscribeButton />
+				<CaptionsButton />
 				<SmartCutsButton />
 				<ExportButton />
 				<div className="w-px h-6 bg-border mx-1"></div>

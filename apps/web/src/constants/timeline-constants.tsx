@@ -6,6 +6,7 @@ import {
 	MagicWand05Icon,
 	MusicNote03Icon,
 	TextIcon,
+	BubbleChatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { OcVideoIcon } from "@opencut/ui/icons";
@@ -75,6 +76,17 @@ export const TRACK_CONFIG: Record<
 		icon: (
 			<HugeiconsIcon
 				icon={MagicWand05Icon}
+				className="text-muted-foreground size-4 shrink-0"
+			/>
+		),
+	},
+	transcript: {
+		background: "bg-[#FACC15]",
+		height: 25,
+		defaultName: "Transcript",
+		icon: (
+			<HugeiconsIcon
+				icon={BubbleChatIcon}
 				className="text-muted-foreground size-4 shrink-0"
 			/>
 		),

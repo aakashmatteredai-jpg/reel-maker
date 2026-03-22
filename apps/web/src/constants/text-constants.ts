@@ -1,4 +1,4 @@
-import type { TextElement } from "@/types/timeline";
+import type { TextElement, TranscriptElement } from "@/types/timeline";
 import {
 	DEFAULT_OPACITY,
 	DEFAULT_TRANSFORM,
@@ -50,4 +50,18 @@ export const DEFAULT_TEXT_ELEMENT: Omit<TextElement, "id"> = {
 	trimEnd: 0,
 	transform: DEFAULT_TRANSFORM,
 	opacity: DEFAULT_OPACITY,
+};
+
+export const DEFAULT_TRANSCRIPT_ELEMENT: Omit<TranscriptElement, "id"> = {
+	type: "transcript",
+	name: "Transcript",
+	fontSize: 32,
+	fontFamily: "Inter",
+	color: "#ffffff",
+	backgroundColor: "transparent",
+	positionY: 80,
+	duration: 0, // Should be updated based on project duration
+	startTime: 0,
+	trimStart: 0,
+	trimEnd: 0,
 };

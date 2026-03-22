@@ -9,6 +9,7 @@ import { SaveManager } from "./managers/save-manager";
 import { AudioManager } from "./managers/audio-manager";
 import { SelectionManager } from "./managers/selection-manager";
 import { AutoReelManager } from "./managers/auto-reel-manager";
+import { TranscriptionManager } from "./managers/transcription-manager";
 import { registerDefaultEffects } from "@/lib/effects";
 
 export class EditorCore {
@@ -25,6 +26,7 @@ export class EditorCore {
 	public readonly audio: AudioManager;
 	public readonly selection: SelectionManager;
 	public readonly autoReel: AutoReelManager;
+	public readonly transcription: TranscriptionManager;
 
 	private constructor() {
 		registerDefaultEffects();
@@ -39,6 +41,7 @@ export class EditorCore {
 		this.audio = new AudioManager(this);
 		this.selection = new SelectionManager(this);
 		this.autoReel = new AutoReelManager(this);
+		this.transcription = new TranscriptionManager(this);
 		this.save.start();
 	}
 

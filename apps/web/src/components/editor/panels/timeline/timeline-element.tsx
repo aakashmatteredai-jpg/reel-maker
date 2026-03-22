@@ -52,6 +52,7 @@ import {
 	Exchange01Icon,
 	KeyframeIcon,
 	MagicWand05Icon,
+	BubbleChatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { uppercase } from "@/utils/string";
@@ -771,6 +772,15 @@ const ELEMENT_CONTENT_RENDERERS: Record<
 			track,
 		});
 	},
+	transcript: ({ element }) => (
+		<div className="flex size-full items-center justify-start gap-1 pl-2">
+			<HugeiconsIcon
+				icon={BubbleChatIcon}
+				className="size-4 shrink-0 text-white"
+			/>
+			<span className="truncate text-xs text-white ml-1">Transcript</span>
+		</div>
+	),
 };
 
 function ElementContent({ element, track, isSelected }: ElementContentProps) {

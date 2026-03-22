@@ -220,6 +220,17 @@ export function getElementBounds({
 		};
 	}
 
+	if (element.type === "transcript") {
+		const y = (element.positionY / 100) * canvasHeight;
+		return {
+			cx: canvasWidth / 2,
+			cy: y,
+			width: canvasWidth * 0.8,
+			height: 60, // Selection box height
+			rotation: 0,
+		};
+	}
+
 	return null;
 }
 

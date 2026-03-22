@@ -150,6 +150,11 @@ export const ACTIONS = {
 		description: "✨ Auto Reel",
 		category: "editing",
 	},
+	"toggle-captions": {
+		description: "Toggle Captions",
+		category: "controls",
+		defaultShortcuts: ["c"],
+	},
 } as const satisfies Record<string, TActionDefinition>;
 
 export type TAction = keyof typeof ACTIONS;
